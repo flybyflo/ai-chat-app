@@ -8,6 +8,7 @@ import {
   XAxis,
   Tooltip,
 } from 'recharts';
+import { useEffect, useState } from 'react';
 
 import {
   Card,
@@ -111,6 +112,13 @@ export function BarChart({
     },
   } satisfies ChartConfig;
 
+  // Use client-side rendering to avoid hydration mismatch
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   return (
     <Card className="max-w-[500px]">
       <CardHeader>
@@ -119,24 +127,35 @@ export function BarChart({
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig}>
-          <RechartsBarChart width={400} height={200} data={data}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="month"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              tickFormatter={(value) => value.slice(0, 3)}
-            />
-            <Tooltip
-              content={(props) => (
-                <CustomTooltip {...props} dataLabel={dataLabel} />
-              )}
-              cursor={false}
-              wrapperStyle={{ outline: 'none' }}
-            />
-            <Bar dataKey="desktop" fill="var(--color-desktop)" radius={8} />
-          </RechartsBarChart>
+          {isMounted ? (
+            <RechartsBarChart
+              width={400}
+              height={200}
+              data={data}
+              key="barchart-1"
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value.slice(0, 3)}
+              />
+              <Tooltip
+                content={(props) => (
+                  <CustomTooltip {...props} dataLabel={dataLabel} />
+                )}
+                cursor={false}
+                wrapperStyle={{ outline: 'none' }}
+              />
+              <Bar dataKey="desktop" fill="var(--color-desktop)" radius={8} />
+            </RechartsBarChart>
+          ) : (
+            <div className="w-[400px] h-[200px] flex items-center justify-center bg-muted">
+              Loading chart...
+            </div>
+          )}
         </ChartContainer>
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
