@@ -1,11 +1,38 @@
 import { experimental_createMCPClient as createMCPClient } from 'ai';
-import { z } from 'zod';
 
 // MCP Client configuration
 let mcpClient: any = null;
 let toolsCache: any = null;
 let lastDiscoveryTime = 0;
 const CACHE_DURATION = 30000; // 30 seconds cache
+
+// Extract server name from MCP server URL
+export function getMCPServerName(): string {
+  const mcpServerUrl = process.env.MCP_SERVER_URL;
+  if (!mcpServerUrl) {
+    return 'unknown';
+  }
+
+  try {
+    const url = new URL(mcpServerUrl);
+    const hostname = url.hostname;
+    
+    // If it's localhost or 127.0.0.1, try to extract from port or path
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      const port = url.port;
+      if (port) {
+        return `local-${port}`;
+      }
+      return 'local';
+    }
+    
+    // For other hostnames, use the hostname
+    return hostname.replace(/\./g, '-');
+  } catch (error) {
+    console.warn('Failed to parse MCP server URL:', error);
+    return 'unknown';
+  }
+}
 
 export async function getMCPClient() {
   if (mcpClient) {

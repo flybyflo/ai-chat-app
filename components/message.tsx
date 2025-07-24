@@ -11,6 +11,7 @@ import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
 import { Weather } from './weather';
+import { MCPToolResult } from './mcp-tool-result';
 import equal from 'fast-deep-equal';
 import { cn, sanitizeText } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -157,6 +158,10 @@ const PurePreviewMessage = ({
                 const { toolInvocation } = part;
                 const { toolName, toolCallId, state } = toolInvocation;
 
+                // Define built-in tools
+                const builtInTools = ['getWeather', 'createDocument', 'updateDocument', 'requestSuggestions'];
+                const isMCPTool = !builtInTools.includes(toolName);
+
                 if (state === 'call') {
                   const { args } = toolInvocation;
 
@@ -183,6 +188,14 @@ const PurePreviewMessage = ({
                           args={args}
                           isReadonly={isReadonly}
                         />
+                      ) : isMCPTool ? (
+                        <MCPToolResult
+                          toolName={toolName}
+                          args={args}
+                          result={null}
+                          state="call"
+                          serverName={mcpServerName}
+                        />
                       ) : null}
                     </div>
                   );
@@ -190,6 +203,7 @@ const PurePreviewMessage = ({
 
                 if (state === 'result') {
                   const { result } = toolInvocation;
+                  const { args } = toolInvocation;
 
                   return (
                     <div key={toolCallId}>
@@ -211,6 +225,14 @@ const PurePreviewMessage = ({
                           type="request-suggestions"
                           result={result}
                           isReadonly={isReadonly}
+                        />
+                      ) : isMCPTool ? (
+                        <MCPToolResult
+                          toolName={toolName}
+                          args={args}
+                          result={result}
+                          state="result"
+                          serverName={mcpServerName}
                         />
                       ) : (
                         <pre>{JSON.stringify(result, null, 2)}</pre>
