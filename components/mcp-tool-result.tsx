@@ -52,7 +52,7 @@ const MCPToolResult = memo(function MCPToolResult({
   };
 
   // Create the new heading format
-  const headingText = `mcp::${serverName}::${toolName}${formatParameters(args)}`;
+  const headingText = `mcp::${serverName || 'unknown'}::${toolName}${formatParameters(args)}`;
 
   return (
     <motion.div

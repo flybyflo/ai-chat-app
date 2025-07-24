@@ -194,7 +194,6 @@ const PurePreviewMessage = ({
                           args={args}
                           result={null}
                           state="call"
-                          serverName={mcpServerName}
                         />
                       ) : null}
                     </div>
@@ -232,7 +231,6 @@ const PurePreviewMessage = ({
                           args={args}
                           result={result}
                           state="result"
-                          serverName={mcpServerName}
                         />
                       ) : (
                         <pre>{JSON.stringify(result, null, 2)}</pre>
