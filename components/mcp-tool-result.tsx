@@ -22,7 +22,6 @@ const MCPToolResult = memo(function MCPToolResult({
   serverName = 'unknown',
 }: MCPToolResultProps) {
   const [showResult, setShowResult] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
 
   // Show result with a slight delay for better UX
   useEffect(() => {
