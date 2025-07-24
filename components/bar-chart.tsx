@@ -1,6 +1,6 @@
 'use client';
 
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 import {
   Bar,
   BarChart as RechartsBarChart,
@@ -83,7 +83,8 @@ interface BarChartProps {
   trend?: {
     value: number;
     label: string;
-  };
+    direction?: 'up' | 'down' | 'none';
+  } | null;
   dataLabel?: string;
 }
 
@@ -99,10 +100,7 @@ export function BarChart({
   title = 'Bar Chart',
   description = 'January - June 2024',
   footer = 'Showing total visitors for the last 6 months',
-  trend = {
-    value: 5.2,
-    label: 'this month',
-  },
+  trend = null,
   dataLabel,
 }: BarChartProps) {
   const chartConfig = {
@@ -159,10 +157,21 @@ export function BarChart({
         </ChartContainer>
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
-        <div className="flex gap-2 leading-none font-medium">
-          Trending up by {trend.value}% {trend.label}{' '}
-          <TrendingUp className="size-4" />
-        </div>
+        {trend && (
+          <div className="flex gap-2 leading-none font-medium">
+            {trend.direction !== 'down' ? (
+              <>
+                Trending up by {trend.value}% {trend.label}{' '}
+                <TrendingUp className="size-4" />
+              </>
+            ) : (
+              <>
+                Trending down by {trend.value}% {trend.label}{' '}
+                <TrendingDown className="size-4" />
+              </>
+            )}
+          </div>
+        )}
         <div className="text-muted-foreground leading-none">{footer}</div>
       </CardFooter>
     </Card>

@@ -17,11 +17,15 @@ export const showChart = tool({
     footer: z.string().optional().describe('Footer text for the chart'),
     trend: z
       .object({
-        value: z.number(),
-        label: z.string(),
+        value: z.number().describe('Trend percentage value'),
+        label: z.string().describe('Label for the trend (e.g., "this month")'),
+        direction: z
+          .enum(['up', 'down', 'none'])
+          .optional()
+          .describe('Direction of the trend (default: up)'),
       })
       .optional()
-      .describe('Trending information to display'),
+      .describe('Trending information to display (omit to hide trend)'),
     dataLabel: z
       .string()
       .optional()
@@ -40,10 +44,7 @@ export const showChart = tool({
         { month: 'June', desktop: 214 },
       ],
       footer: footer || 'Showing total visitors for the last 6 months',
-      trend: trend || {
-        value: 5.2,
-        label: 'this month',
-      },
+      trend: trend || null,
       dataLabel: dataLabel,
     };
   },
