@@ -171,7 +171,7 @@ export async function POST(request: Request) {
               dataStream,
             }),
           },
-          onFinish: async ({ response }) => {
+          onFinish: async ({ response, steps }) => {
             if (session.user?.id) {
               try {
                 const assistantId = getTrailingMessageId({
@@ -188,6 +188,15 @@ export async function POST(request: Request) {
                   messages: [message],
                   responseMessages: response.messages,
                 });
+
+                // Log multi-step execution details for debugging
+                if (steps && steps.length > 1) {
+                  console.log(`Multi-step execution completed with ${steps.length} steps`);
+                  const allToolCalls = steps.flatMap(step => step.toolCalls || []);
+                  if (allToolCalls.length > 0) {
+                    console.log(`Total tool calls across all steps: ${allToolCalls.length}`);
+                  }
+                }
 
                 await saveMessages({
                   messages: [
@@ -237,7 +246,7 @@ export async function POST(request: Request) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
-    return new ChatSDKError('internal_server_error:chat').toResponse();
+    return new ChatSDKError('bad_request:chat').toResponse();
   }
 }
 
