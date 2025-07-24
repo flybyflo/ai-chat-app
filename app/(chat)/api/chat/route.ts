@@ -23,6 +23,7 @@ import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
+import { getMCPTools, getMCPToolsInfo } from '@/lib/ai/mcp-client';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
@@ -145,7 +146,52 @@ export async function POST(request: Request) {
     await createStreamId({ streamId, chatId: id });
 
     const stream = createDataStream({
-      execute: (dataStream) => {
+      execute: async (dataStream) => {
+        // Get MCP tools using auto-discovery
+        let mcpTools = {};
+        let mcpToolsInfo = null;
+        
+        try {
+          console.log('🔄 Loading MCP tools...');
+          mcpTools = await getMCPTools();
+          mcpToolsInfo = await getMCPToolsInfo();
+          
+          if (mcpToolsInfo && mcpToolsInfo.count > 0) {
+            console.log(`✅ Loaded ${mcpToolsInfo.count} MCP tools:`, 
+              mcpToolsInfo.tools.map(t => `${t.name} - ${t.description}`));
+          }
+        } catch (error) {
+          console.warn('⚠️  Failed to load MCP tools:', error);
+        }
+
+        // Combine regular tools with auto-discovered MCP tools
+        const regularTools = {
+          getWeather,
+          createDocument: createDocument({ session, dataStream }),
+          updateDocument: updateDocument({ session, dataStream }),
+          requestSuggestions: requestSuggestions({
+            session,
+            dataStream,
+          }),
+        };
+
+        const allTools = {
+          ...regularTools,
+          ...mcpTools,
+        };
+
+        // Get all available tool names
+        const availableToolNames = Object.keys(allTools);
+        const regularToolNames = Object.keys(regularTools);
+        const mcpToolNames = Object.keys(mcpTools);
+        
+        console.log(`🛠️  Available tools: ${availableToolNames.length} total 
+          (${regularToolNames.length} regular, ${mcpToolNames.length} MCP)`);
+        
+        if (mcpToolNames.length > 0) {
+          console.log('🔗 MCP tools:', mcpToolNames);
+        }
+
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
@@ -154,23 +200,10 @@ export async function POST(request: Request) {
           experimental_activeTools:
             selectedChatModel === 'chat-model-reasoning'
               ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
+              : availableToolNames as any[],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
-          tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
-          },
+          tools: allTools,
           onFinish: async ({ response, steps }) => {
             if (session.user?.id) {
               try {

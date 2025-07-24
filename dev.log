@@ -1,0 +1,21 @@
+
+> ai-chatbot@3.0.23 dev /Users/flybyflo/Developer/ai-chat-app
+> next dev --turbo
+
+   ▲ Next.js 15.3.0-canary.31 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.178.109:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     ✓ ppr
+
+ ✓ Starting...
+ ✓ Compiled in 728ms
+ ✓ Ready in 1613ms
+ ○ Compiling /api/vote ...
+ ✓ Compiled /api/vote in 1164ms
+ GET /api/history?limit=20 200 in 1181ms
+ GET /api/vote?chatId=eee55ec1-acc7-47fa-bad3-b71fe7b91c3f 200 in 1218ms
+ GET /api/history?limit=20 200 in 50ms
+ GET /api/vote?chatId=eee55ec1-acc7-47fa-bad3-b71fe7b91c3f 200 in 60ms
+[?25h
