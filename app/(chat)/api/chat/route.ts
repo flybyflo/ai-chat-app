@@ -23,7 +23,8 @@ import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
-import { getMCPTools, getMCPToolsInfo } from '@/lib/ai/mcp-client';
+import { showChart } from '@/lib/ai/tools/show-chart';
+import { getMCPTools } from '@/lib/ai/mcp-client';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
@@ -149,16 +150,15 @@ export async function POST(request: Request) {
       execute: async (dataStream) => {
         // Get MCP tools using auto-discovery
         let mcpTools = {};
-        let mcpToolsInfo = null;
-        
+
         try {
           console.log('🔄 Loading MCP tools...');
           mcpTools = await getMCPTools();
-          mcpToolsInfo = await getMCPToolsInfo();
-          
-          if (mcpToolsInfo && mcpToolsInfo.count > 0) {
-            console.log(`✅ Loaded ${mcpToolsInfo.count} MCP tools:`, 
-              mcpToolsInfo.tools.map(t => `${t.name} - ${t.description}`));
+
+          // Get MCP tools info from the returned tools object
+          const toolCount = Object.keys(mcpTools).length;
+          if (toolCount > 0) {
+            console.log(`✅ Loaded ${toolCount} MCP tools`);
           }
         } catch (error) {
           console.warn('⚠️  Failed to load MCP tools:', error);
@@ -167,6 +167,7 @@ export async function POST(request: Request) {
         // Combine regular tools with auto-discovered MCP tools
         const regularTools = {
           getWeather,
+          showChart,
           createDocument: createDocument({ session, dataStream }),
           updateDocument: updateDocument({ session, dataStream }),
           requestSuggestions: requestSuggestions({
@@ -184,10 +185,10 @@ export async function POST(request: Request) {
         const availableToolNames = Object.keys(allTools);
         const regularToolNames = Object.keys(regularTools);
         const mcpToolNames = Object.keys(mcpTools);
-        
+
         console.log(`🛠️  Available tools: ${availableToolNames.length} total 
           (${regularToolNames.length} regular, ${mcpToolNames.length} MCP)`);
-        
+
         if (mcpToolNames.length > 0) {
           console.log('🔗 MCP tools:', mcpToolNames);
         }
@@ -200,7 +201,7 @@ export async function POST(request: Request) {
           experimental_activeTools:
             selectedChatModel === 'chat-model-reasoning'
               ? []
-              : availableToolNames as any[],
+              : (availableToolNames as any[]),
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
           tools: allTools,
@@ -224,10 +225,16 @@ export async function POST(request: Request) {
 
                 // Log multi-step execution details for debugging
                 if (steps && steps.length > 1) {
-                  console.log(`Multi-step execution completed with ${steps.length} steps`);
-                  const allToolCalls = steps.flatMap(step => step.toolCalls || []);
+                  console.log(
+                    `Multi-step execution completed with ${steps.length} steps`,
+                  );
+                  const allToolCalls = steps.flatMap(
+                    (step) => step.toolCalls || [],
+                  );
                   if (allToolCalls.length > 0) {
-                    console.log(`Total tool calls across all steps: ${allToolCalls.length}`);
+                    console.log(
+                      `Total tool calls across all steps: ${allToolCalls.length}`,
+                    );
                   }
                 }
 

@@ -80,6 +80,7 @@
     "react-hook-form": "^7.61.1",
     "react-markdown": "^9.0.1",
     "react-resizable-panels": "^2.1.7",
+    "recharts": "2.15.4",
     "redis": "^5.0.0",
     "remark-gfm": "^4.0.0",
     "resumable-stream": "^2.0.0",

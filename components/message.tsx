@@ -11,6 +11,7 @@ import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
 import { Weather } from './weather';
+import { BarChart } from './bar-chart';
 import { MCPToolResult } from './mcp-tool-result';
 import equal from 'fast-deep-equal';
 import { cn, sanitizeText } from '@/lib/utils';
@@ -159,7 +160,12 @@ const PurePreviewMessage = ({
                 const { toolName, toolCallId, state } = toolInvocation;
 
                 // Define built-in tools
-                const builtInTools = ['getWeather', 'createDocument', 'updateDocument', 'requestSuggestions'];
+                const builtInTools = [
+                  'getWeather',
+                  'createDocument',
+                  'updateDocument',
+                  'requestSuggestions',
+                ];
                 const isMCPTool = !builtInTools.includes(toolName);
 
                 if (state === 'call') {
@@ -169,11 +175,15 @@ const PurePreviewMessage = ({
                     <div
                       key={toolCallId}
                       className={cx({
-                        skeleton: ['getWeather'].includes(toolName),
+                        skeleton: ['getWeather', 'showChart'].includes(
+                          toolName,
+                        ),
                       })}
                     >
                       {toolName === 'getWeather' ? (
                         <Weather />
+                      ) : toolName === 'showChart' ? (
+                        <BarChart />
                       ) : toolName === 'createDocument' ? (
                         <DocumentPreview isReadonly={isReadonly} args={args} />
                       ) : toolName === 'updateDocument' ? (
@@ -208,6 +218,15 @@ const PurePreviewMessage = ({
                     <div key={toolCallId}>
                       {toolName === 'getWeather' ? (
                         <Weather weatherAtLocation={result} />
+                      ) : toolName === 'showChart' ? (
+                        <BarChart
+                          title={result.title}
+                          description={result.description}
+                          data={result.data}
+                          footer={result.footer}
+                          trend={result.trend}
+                          dataLabel={result.dataLabel}
+                        />
                       ) : toolName === 'createDocument' ? (
                         <DocumentPreview
                           isReadonly={isReadonly}

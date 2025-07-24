@@ -29,14 +29,15 @@ function PureSuggestedActions({
       action: `Write code to demonstrate djikstra's algorithm`,
     },
     {
-      title: 'Help me write an essay',
-      label: `about silicon valley`,
-      action: `Help me write an essay about silicon valley`,
-    },
-    {
       title: 'What is the weather',
       label: 'in San Francisco?',
       action: 'What is the weather in San Francisco?',
+    },
+    {
+      title: 'Show me a chart',
+      label: 'of website traffic data',
+      action:
+        'Show me a bar chart of website traffic data for the last 6 months',
     },
   ];
 
