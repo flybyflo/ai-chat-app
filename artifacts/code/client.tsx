@@ -12,8 +12,8 @@ import { toast } from 'sonner';
 import { generateUUID } from '@/lib/utils';
 import {
   Console,
-  type ConsoleOutput,
-  type ConsoleOutputContent,
+  ConsoleOutput,
+  ConsoleOutputContent,
 } from '@/components/console';
 
 const OUTPUT_HANDLERS = {
@@ -76,10 +76,10 @@ export const codeArtifact = new Artifact<'code', Metadata>({
     });
   },
   onStreamPart: ({ streamPart, setArtifact }) => {
-    if (streamPart.type === 'data-codeDelta') {
+    if (streamPart.type === 'code-delta') {
       setArtifact((draftArtifact) => ({
         ...draftArtifact,
-        content: streamPart.data,
+        content: streamPart.content as string,
         isVisible:
           draftArtifact.status === 'streaming' &&
           draftArtifact.content.length > 300 &&
@@ -249,30 +249,20 @@ export const codeArtifact = new Artifact<'code', Metadata>({
     {
       icon: <MessageIcon />,
       description: 'Add comments',
-      onClick: ({ sendMessage }) => {
-        sendMessage({
+      onClick: ({ appendMessage }) => {
+        appendMessage({
           role: 'user',
-          parts: [
-            {
-              type: 'text',
-              text: 'Add comments to the code snippet for understanding',
-            },
-          ],
+          content: 'Add comments to the code snippet for understanding',
         });
       },
     },
     {
       icon: <LogsIcon />,
       description: 'Add logs',
-      onClick: ({ sendMessage }) => {
-        sendMessage({
+      onClick: ({ appendMessage }) => {
+        appendMessage({
           role: 'user',
-          parts: [
-            {
-              type: 'text',
-              text: 'Add logs to the code snippet for debugging',
-            },
-          ],
+          content: 'Add logs to the code snippet for debugging',
         });
       },
     },

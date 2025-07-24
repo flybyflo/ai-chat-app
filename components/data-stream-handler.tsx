@@ -1,13 +1,28 @@
 'use client';
 
+import { useChat } from '@ai-sdk/react';
 import { useEffect, useRef } from 'react';
-import { artifactDefinitions } from './artifact';
+import { artifactDefinitions, ArtifactKind } from './artifact';
+import { Suggestion } from '@/lib/db/schema';
 import { initialArtifactData, useArtifact } from '@/hooks/use-artifact';
-import { useDataStream } from './data-stream-provider';
 
-export function DataStreamHandler() {
-  const { dataStream } = useDataStream();
+export type DataStreamDelta = {
+  type:
+    | 'text-delta'
+    | 'code-delta'
+    | 'sheet-delta'
+    | 'image-delta'
+    | 'title'
+    | 'id'
+    | 'suggestion'
+    | 'clear'
+    | 'finish'
+    | 'kind';
+  content: string | Suggestion;
+};
 
+export function DataStreamHandler({ id }: { id: string }) {
+  const { data: dataStream } = useChat({ id });
   const { artifact, setArtifact, setMetadata } = useArtifact();
   const lastProcessedIndex = useRef(-1);
 
@@ -17,7 +32,7 @@ export function DataStreamHandler() {
     const newDeltas = dataStream.slice(lastProcessedIndex.current + 1);
     lastProcessedIndex.current = dataStream.length - 1;
 
-    newDeltas.forEach((delta) => {
+    (newDeltas as DataStreamDelta[]).forEach((delta: DataStreamDelta) => {
       const artifactDefinition = artifactDefinitions.find(
         (artifactDefinition) => artifactDefinition.kind === artifact.kind,
       );
@@ -36,35 +51,35 @@ export function DataStreamHandler() {
         }
 
         switch (delta.type) {
-          case 'data-id':
+          case 'id':
             return {
               ...draftArtifact,
-              documentId: delta.data,
+              documentId: delta.content as string,
               status: 'streaming',
             };
 
-          case 'data-title':
+          case 'title':
             return {
               ...draftArtifact,
-              title: delta.data,
+              title: delta.content as string,
               status: 'streaming',
             };
 
-          case 'data-kind':
+          case 'kind':
             return {
               ...draftArtifact,
-              kind: delta.data,
+              kind: delta.content as ArtifactKind,
               status: 'streaming',
             };
 
-          case 'data-clear':
+          case 'clear':
             return {
               ...draftArtifact,
               content: '',
               status: 'streaming',
             };
 
-          case 'data-finish':
+          case 'finish':
             return {
               ...draftArtifact,
               status: 'idle',

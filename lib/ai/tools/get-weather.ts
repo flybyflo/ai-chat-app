@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const getWeather = tool({
   description: 'Get the current weather at a location',
-  inputSchema: z.object({
+  parameters: z.object({
     latitude: z.number(),
     longitude: z.number(),
   }),

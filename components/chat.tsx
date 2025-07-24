@@ -1,6 +1,6 @@
 'use client';
 
-import { DefaultChatTransport } from 'ai';
+import type { Attachment, UIMessage } from 'ai';
 import { useChat } from '@ai-sdk/react';
 import { useEffect, useState } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
@@ -20,8 +20,6 @@ import { useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { ChatSDKError } from '@/lib/errors';
-import type { Attachment, ChatMessage } from '@/lib/types';
-import { useDataStream } from './data-stream-provider';
 
 export function Chat({
   id,
@@ -33,54 +31,45 @@ export function Chat({
   autoResume,
 }: {
   id: string;
-  initialMessages: ChatMessage[];
+  initialMessages: Array<UIMessage>;
   initialChatModel: string;
   initialVisibilityType: VisibilityType;
   isReadonly: boolean;
   session: Session;
   autoResume: boolean;
 }) {
+  const { mutate } = useSWRConfig();
+
   const { visibilityType } = useChatVisibility({
     chatId: id,
     initialVisibilityType,
   });
 
-  const { mutate } = useSWRConfig();
-  const { setDataStream } = useDataStream();
-
-  const [input, setInput] = useState<string>('');
-
   const {
     messages,
     setMessages,
-    sendMessage,
+    handleSubmit,
+    input,
+    setInput,
+    append,
     status,
     stop,
-    regenerate,
-    resumeStream,
-  } = useChat<ChatMessage>({
+    reload,
+    experimental_resume,
+    data,
+  } = useChat({
     id,
-    messages: initialMessages,
+    initialMessages,
     experimental_throttle: 100,
+    sendExtraMessageFields: true,
     generateId: generateUUID,
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      fetch: fetchWithErrorHandlers,
-      prepareSendMessagesRequest({ messages, id, body }) {
-        return {
-          body: {
-            id,
-            message: messages.at(-1),
-            selectedChatModel: initialChatModel,
-            selectedVisibilityType: visibilityType,
-            ...body,
-          },
-        };
-      },
+    fetch: fetchWithErrorHandlers,
+    experimental_prepareRequestBody: (body) => ({
+      id,
+      message: body.messages.at(-1),
+      selectedChatModel: initialChatModel,
+      selectedVisibilityType: visibilityType,
     }),
-    onData: (dataPart) => {
-      setDataStream((ds) => (ds ? [...ds, dataPart] : []));
-    },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
@@ -101,15 +90,15 @@ export function Chat({
 
   useEffect(() => {
     if (query && !hasAppendedQuery) {
-      sendMessage({
-        role: 'user' as const,
-        parts: [{ type: 'text', text: query }],
+      append({
+        role: 'user',
+        content: query,
       });
 
       setHasAppendedQuery(true);
       window.history.replaceState({}, '', `/chat/${id}`);
     }
-  }, [query, sendMessage, hasAppendedQuery, id]);
+  }, [query, append, hasAppendedQuery, id]);
 
   const { data: votes } = useSWR<Array<Vote>>(
     messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
@@ -122,7 +111,8 @@ export function Chat({
   useAutoResume({
     autoResume,
     initialMessages,
-    resumeStream,
+    experimental_resume,
+    data,
     setMessages,
   });
 
@@ -143,7 +133,7 @@ export function Chat({
           votes={votes}
           messages={messages}
           setMessages={setMessages}
-          regenerate={regenerate}
+          reload={reload}
           isReadonly={isReadonly}
           isArtifactVisible={isArtifactVisible}
         />
@@ -154,13 +144,14 @@ export function Chat({
               chatId={id}
               input={input}
               setInput={setInput}
+              handleSubmit={handleSubmit}
               status={status}
               stop={stop}
               attachments={attachments}
               setAttachments={setAttachments}
               messages={messages}
               setMessages={setMessages}
-              sendMessage={sendMessage}
+              append={append}
               selectedVisibilityType={visibilityType}
             />
           )}
@@ -171,14 +162,15 @@ export function Chat({
         chatId={id}
         input={input}
         setInput={setInput}
+        handleSubmit={handleSubmit}
         status={status}
         stop={stop}
         attachments={attachments}
         setAttachments={setAttachments}
-        sendMessage={sendMessage}
+        append={append}
         messages={messages}
         setMessages={setMessages}
-        regenerate={regenerate}
+        reload={reload}
         votes={votes}
         isReadonly={isReadonly}
         selectedVisibilityType={visibilityType}

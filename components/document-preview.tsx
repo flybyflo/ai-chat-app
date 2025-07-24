@@ -2,16 +2,16 @@
 
 import {
   memo,
-  type MouseEvent,
+  MouseEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
 } from 'react';
-import type { ArtifactKind, UIArtifact } from './artifact';
+import { ArtifactKind, UIArtifact } from './artifact';
 import { FileIcon, FullscreenIcon, ImageIcon, LoaderIcon } from './icons';
 import { cn, fetcher } from '@/lib/utils';
-import type { Document } from '@/lib/db/schema';
+import { Document } from '@/lib/db/schema';
 import { InlineDocumentSkeleton } from './document-skeleton';
 import useSWR from 'swr';
 import { Editor } from './text-editor';
@@ -73,7 +73,7 @@ export function DocumentPreview({
       return (
         <DocumentToolCall
           type="create"
-          args={{ title: args.title, kind: args.kind }}
+          args={{ title: args.title }}
           isReadonly={isReadonly}
         />
       );

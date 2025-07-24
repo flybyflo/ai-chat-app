@@ -2,12 +2,11 @@ import { codeDocumentHandler } from '@/artifacts/code/server';
 import { imageDocumentHandler } from '@/artifacts/image/server';
 import { sheetDocumentHandler } from '@/artifacts/sheet/server';
 import { textDocumentHandler } from '@/artifacts/text/server';
-import type { ArtifactKind } from '@/components/artifact';
-import type { Document } from '../db/schema';
+import { ArtifactKind } from '@/components/artifact';
+import { DataStreamWriter } from 'ai';
+import { Document } from '../db/schema';
 import { saveDocument } from '../db/queries';
-import type { Session } from 'next-auth';
-import type { UIMessageStreamWriter } from 'ai';
-import type { ChatMessage } from '../types';
+import { Session } from 'next-auth';
 
 export interface SaveDocumentProps {
   id: string;
@@ -20,14 +19,14 @@ export interface SaveDocumentProps {
 export interface CreateDocumentCallbackProps {
   id: string;
   title: string;
-  dataStream: UIMessageStreamWriter<ChatMessage>;
+  dataStream: DataStreamWriter;
   session: Session;
 }
 
 export interface UpdateDocumentCallbackProps {
   document: Document;
   description: string;
-  dataStream: UIMessageStreamWriter<ChatMessage>;
+  dataStream: DataStreamWriter;
   session: Session;
 }
 

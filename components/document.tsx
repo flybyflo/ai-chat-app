@@ -88,10 +88,7 @@ export const DocumentToolResult = memo(PureDocumentToolResult, () => true);
 
 interface DocumentToolCallProps {
   type: 'create' | 'update' | 'request-suggestions';
-  args:
-    | { title: string; kind: ArtifactKind } // for create
-    | { id: string; description: string } // for update
-    | { documentId: string }; // for request-suggestions
+  args: { title: string };
   isReadonly: boolean;
 }
 
@@ -142,15 +139,7 @@ function PureDocumentToolCall({
         </div>
 
         <div className="text-left">
-          {`${getActionText(type, 'present')} ${
-            type === 'create' && 'title' in args && args.title
-              ? `"${args.title}"`
-              : type === 'update' && 'description' in args
-                ? `"${args.description}"`
-                : type === 'request-suggestions'
-                  ? 'for document'
-                  : ''
-          }`}
+          {`${getActionText(type, 'present')} ${args.title ? `"${args.title}"` : ''}`}
         </div>
       </div>
 

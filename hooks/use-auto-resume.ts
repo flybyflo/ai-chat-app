@@ -1,32 +1,32 @@
 'use client';
 
 import { useEffect } from 'react';
+import type { UIMessage } from 'ai';
 import type { UseChatHelpers } from '@ai-sdk/react';
-import type { ChatMessage } from '@/lib/types';
-import { useDataStream } from '@/components/data-stream-provider';
+import type { DataPart } from '@/lib/types';
 
 export interface UseAutoResumeParams {
   autoResume: boolean;
-  initialMessages: ChatMessage[];
-  resumeStream: UseChatHelpers<ChatMessage>['resumeStream'];
-  setMessages: UseChatHelpers<ChatMessage>['setMessages'];
+  initialMessages: UIMessage[];
+  experimental_resume: UseChatHelpers['experimental_resume'];
+  data: UseChatHelpers['data'];
+  setMessages: UseChatHelpers['setMessages'];
 }
 
 export function useAutoResume({
   autoResume,
   initialMessages,
-  resumeStream,
+  experimental_resume,
+  data,
   setMessages,
 }: UseAutoResumeParams) {
-  const { dataStream } = useDataStream();
-
   useEffect(() => {
     if (!autoResume) return;
 
     const mostRecentMessage = initialMessages.at(-1);
 
     if (mostRecentMessage?.role === 'user') {
-      resumeStream();
+      experimental_resume();
     }
 
     // we intentionally run this once
@@ -34,14 +34,14 @@ export function useAutoResume({
   }, []);
 
   useEffect(() => {
-    if (!dataStream) return;
-    if (dataStream.length === 0) return;
+    if (!data) return;
+    if (data.length === 0) return;
 
-    const dataPart = dataStream[0];
+    const dataPart = data[0] as DataPart;
 
-    if (dataPart.type === 'data-appendMessage') {
-      const message = JSON.parse(dataPart.data);
+    if (dataPart.type === 'append-message') {
+      const message = JSON.parse(dataPart.message) as UIMessage;
       setMessages([...initialMessages, message]);
     }
-  }, [dataStream, initialMessages, setMessages]);
+  }, [data, initialMessages, setMessages]);
 }

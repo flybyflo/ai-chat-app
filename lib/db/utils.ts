@@ -9,7 +9,7 @@ export function generateHashedPassword(password: string) {
 }
 
 export function generateDummyPassword() {
-  const password = generateId();
+  const password = generateId(12);
   const hashedPassword = generateHashedPassword(password);
 
   return hashedPassword;

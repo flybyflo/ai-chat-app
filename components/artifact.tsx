@@ -1,3 +1,4 @@
+import type { Attachment, UIMessage } from 'ai';
 import { formatDistance } from 'date-fns';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -27,7 +28,6 @@ import { textArtifact } from '@/artifacts/text/client';
 import equal from 'fast-deep-equal';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import type { VisibilityType } from './visibility-selector';
-import type { Attachment, ChatMessage } from '@/lib/types';
 
 export const artifactDefinitions = [
   textArtifact,
@@ -56,30 +56,32 @@ function PureArtifact({
   chatId,
   input,
   setInput,
+  handleSubmit,
   status,
   stop,
   attachments,
   setAttachments,
-  sendMessage,
+  append,
   messages,
   setMessages,
-  regenerate,
+  reload,
   votes,
   isReadonly,
   selectedVisibilityType,
 }: {
   chatId: string;
   input: string;
-  setInput: Dispatch<SetStateAction<string>>;
-  status: UseChatHelpers<ChatMessage>['status'];
-  stop: UseChatHelpers<ChatMessage>['stop'];
-  attachments: Attachment[];
-  setAttachments: Dispatch<SetStateAction<Attachment[]>>;
-  messages: ChatMessage[];
-  setMessages: UseChatHelpers<ChatMessage>['setMessages'];
+  setInput: UseChatHelpers['setInput'];
+  status: UseChatHelpers['status'];
+  stop: UseChatHelpers['stop'];
+  attachments: Array<Attachment>;
+  setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
+  messages: Array<UIMessage>;
+  setMessages: UseChatHelpers['setMessages'];
   votes: Array<Vote> | undefined;
-  sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
-  regenerate: UseChatHelpers<ChatMessage>['regenerate'];
+  append: UseChatHelpers['append'];
+  handleSubmit: UseChatHelpers['handleSubmit'];
+  reload: UseChatHelpers['reload'];
   isReadonly: boolean;
   selectedVisibilityType: VisibilityType;
 }) {
@@ -317,7 +319,7 @@ function PureArtifact({
                   votes={votes}
                   messages={messages}
                   setMessages={setMessages}
-                  regenerate={regenerate}
+                  reload={reload}
                   isReadonly={isReadonly}
                   artifactStatus={artifact.status}
                 />
@@ -327,12 +329,13 @@ function PureArtifact({
                     chatId={chatId}
                     input={input}
                     setInput={setInput}
+                    handleSubmit={handleSubmit}
                     status={status}
                     stop={stop}
                     attachments={attachments}
                     setAttachments={setAttachments}
                     messages={messages}
-                    sendMessage={sendMessage}
+                    append={append}
                     className="bg-background dark:bg-muted"
                     setMessages={setMessages}
                     selectedVisibilityType={selectedVisibilityType}
@@ -473,7 +476,7 @@ function PureArtifact({
                   <Toolbar
                     isToolbarVisible={isToolbarVisible}
                     setIsToolbarVisible={setIsToolbarVisible}
-                    sendMessage={sendMessage}
+                    append={append}
                     status={status}
                     stop={stop}
                     setMessages={setMessages}

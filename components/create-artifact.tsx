@@ -1,9 +1,8 @@
-import type { Suggestion } from '@/lib/db/schema';
-import type { UseChatHelpers } from '@ai-sdk/react';
-import type { ComponentType, Dispatch, ReactNode, SetStateAction } from 'react';
-import type { UIArtifact } from './artifact';
-import type { ChatMessage, CustomUIDataTypes } from '@/lib/types';
-import type { DataUIPart } from 'ai';
+import { Suggestion } from '@/lib/db/schema';
+import { UseChatHelpers } from '@ai-sdk/react';
+import { ComponentType, Dispatch, ReactNode, SetStateAction } from 'react';
+import { DataStreamDelta } from './data-stream-handler';
+import { UIArtifact } from './artifact';
 
 export type ArtifactActionContext<M = any> = {
   content: string;
@@ -24,7 +23,7 @@ type ArtifactAction<M = any> = {
 };
 
 export type ArtifactToolbarContext = {
-  sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
+  appendMessage: UseChatHelpers['append'];
 };
 
 export type ArtifactToolbarItem = {
@@ -64,7 +63,7 @@ type ArtifactConfig<T extends string, M = any> = {
   onStreamPart: (args: {
     setMetadata: Dispatch<SetStateAction<M>>;
     setArtifact: Dispatch<SetStateAction<UIArtifact>>;
-    streamPart: DataUIPart<CustomUIDataTypes>;
+    streamPart: DataStreamDelta;
   }) => void;
 };
 
@@ -78,7 +77,7 @@ export class Artifact<T extends string, M = any> {
   readonly onStreamPart: (args: {
     setMetadata: Dispatch<SetStateAction<M>>;
     setArtifact: Dispatch<SetStateAction<UIArtifact>>;
-    streamPart: DataUIPart<CustomUIDataTypes>;
+    streamPart: DataStreamDelta;
   }) => void;
 
   constructor(config: ArtifactConfig<T, M>) {

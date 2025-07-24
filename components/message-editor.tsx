@@ -1,37 +1,28 @@
 'use client';
 
+import { ChatRequestOptions, Message } from 'ai';
 import { Button } from './ui/button';
-import {
-  type Dispatch,
-  type SetStateAction,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
 import { Textarea } from './ui/textarea';
 import { deleteTrailingMessages } from '@/app/(chat)/actions';
-import type { UseChatHelpers } from '@ai-sdk/react';
-import type { ChatMessage } from '@/lib/types';
-import { getTextFromMessage } from '@/lib/utils';
+import { UseChatHelpers } from '@ai-sdk/react';
 
 export type MessageEditorProps = {
-  message: ChatMessage;
+  message: Message;
   setMode: Dispatch<SetStateAction<'view' | 'edit'>>;
-  setMessages: UseChatHelpers<ChatMessage>['setMessages'];
-  regenerate: UseChatHelpers<ChatMessage>['regenerate'];
+  setMessages: UseChatHelpers['setMessages'];
+  reload: UseChatHelpers['reload'];
 };
 
 export function MessageEditor({
   message,
   setMode,
   setMessages,
-  regenerate,
+  reload,
 }: MessageEditorProps) {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const [draftContent, setDraftContent] = useState<string>(
-    getTextFromMessage(message),
-  );
+  const [draftContent, setDraftContent] = useState<string>(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -84,12 +75,14 @@ export function MessageEditor({
               id: message.id,
             });
 
+            // @ts-expect-error todo: support UIMessage in setMessages
             setMessages((messages) => {
               const index = messages.findIndex((m) => m.id === message.id);
 
               if (index !== -1) {
-                const updatedMessage: ChatMessage = {
+                const updatedMessage = {
                   ...message,
+                  content: draftContent,
                   parts: [{ type: 'text', text: draftContent }],
                 };
 
@@ -100,7 +93,7 @@ export function MessageEditor({
             });
 
             setMode('view');
-            regenerate();
+            reload();
           }}
         >
           {isSubmitting ? 'Sending...' : 'Send'}

@@ -10,7 +10,7 @@ import {
   RedoIcon,
   UndoIcon,
 } from '@/components/icons';
-import type { Suggestion } from '@/lib/db/schema';
+import { Suggestion } from '@/lib/db/schema';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
 
@@ -29,19 +29,22 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
     });
   },
   onStreamPart: ({ streamPart, setMetadata, setArtifact }) => {
-    if (streamPart.type === 'data-suggestion') {
+    if (streamPart.type === 'suggestion') {
       setMetadata((metadata) => {
         return {
-          suggestions: [...metadata.suggestions, streamPart.data],
+          suggestions: [
+            ...metadata.suggestions,
+            streamPart.content as Suggestion,
+          ],
         };
       });
     }
 
-    if (streamPart.type === 'data-textDelta') {
+    if (streamPart.type === 'text-delta') {
       setArtifact((draftArtifact) => {
         return {
           ...draftArtifact,
-          content: draftArtifact.content + streamPart.data,
+          content: draftArtifact.content + (streamPart.content as string),
           isVisible:
             draftArtifact.status === 'streaming' &&
             draftArtifact.content.length > 400 &&
@@ -87,7 +90,9 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
             onSaveContent={onSaveContent}
           />
 
-          {metadata?.suggestions && metadata.suggestions.length > 0 ? (
+          {metadata &&
+          metadata.suggestions &&
+          metadata.suggestions.length > 0 ? (
             <div className="md:hidden h-dvh w-12 shrink-0" />
           ) : null}
         </div>
@@ -150,30 +155,22 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
     {
       icon: <PenIcon />,
       description: 'Add final polish',
-      onClick: ({ sendMessage }) => {
-        sendMessage({
+      onClick: ({ appendMessage }) => {
+        appendMessage({
           role: 'user',
-          parts: [
-            {
-              type: 'text',
-              text: 'Please add final polish and check for grammar, add section titles for better structure, and ensure everything reads smoothly.',
-            },
-          ],
+          content:
+            'Please add final polish and check for grammar, add section titles for better structure, and ensure everything reads smoothly.',
         });
       },
     },
     {
       icon: <MessageIcon />,
       description: 'Request suggestions',
-      onClick: ({ sendMessage }) => {
-        sendMessage({
+      onClick: ({ appendMessage }) => {
+        appendMessage({
           role: 'user',
-          parts: [
-            {
-              type: 'text',
-              text: 'Please add suggestions you have that could improve the writing.',
-            },
-          ],
+          content:
+            'Please add suggestions you have that could improve the writing.',
         });
       },
     },
