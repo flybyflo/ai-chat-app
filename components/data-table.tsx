@@ -264,7 +264,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
           <Select>
             <SelectTrigger
               className="w-38 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate"
-              //size="sm"
+              size="sm"
               id={`${row.original.id}-reviewer`}
             >
               <SelectValue placeholder="Assign reviewer" />
@@ -299,11 +299,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
           <DropdownMenuItem>Make a copy</DropdownMenuItem>
           <DropdownMenuItem>Favorite</DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-          //variant="destructive"
-          >
-            Delete
-          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive">Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     ),
@@ -412,7 +408,7 @@ export function DataTable({
         <Select defaultValue="outline">
           <SelectTrigger
             className="flex w-fit @4xl/main:hidden"
-            //size="sm"
+            size="sm"
             id="view-selector"
           >
             <SelectValue placeholder="Select a view" />
@@ -545,11 +541,7 @@ export function DataTable({
                   table.setPageSize(Number(value));
                 }}
               >
-                <SelectTrigger
-                  //size="sm"
-                  className="w-20"
-                  id="rows-per-page"
-                >
+                <SelectTrigger size="sm" className="w-20" id="rows-per-page">
                   <SelectValue
                     placeholder={table.getState().pagination.pageSize}
                   />
@@ -615,16 +607,16 @@ export function DataTable({
         value="past-performance"
         className="flex flex-col px-4 lg:px-6"
       >
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed" />
+        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
       </TabsContent>
       <TabsContent value="key-personnel" className="flex flex-col px-4 lg:px-6">
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed" />
+        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
       </TabsContent>
       <TabsContent
         value="focus-documents"
         className="flex flex-col px-4 lg:px-6"
       >
-        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed" />
+        <div className="aspect-video w-full flex-1 rounded-lg border border-dashed"></div>
       </TabsContent>
     </Tabs>
   );
