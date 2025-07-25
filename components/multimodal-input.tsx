@@ -27,6 +27,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowDown } from 'lucide-react';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import type { VisibilityType } from './visibility-selector';
+import { ToolsDropdown } from './tools-dropdown';
+import type { McpServer } from '@/lib/db/schema';
 
 function PureMultimodalInput({
   chatId,
@@ -59,6 +61,24 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
+  const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
+
+  // Fetch MCP servers
+  useEffect(() => {
+    const fetchMcpServers = async () => {
+      try {
+        const response = await fetch('/api/mcp-servers');
+        if (response.ok) {
+          const servers = await response.json();
+          setMcpServers(servers);
+        }
+      } catch (error) {
+        console.error('Error fetching MCP servers:', error);
+      }
+    };
+
+    fetchMcpServers();
+  }, []);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -291,8 +311,12 @@ function PureMultimodalInput({
         }}
       />
 
-      <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start">
+      <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start gap-1">
         <AttachmentsButton fileInputRef={fileInputRef} status={status} />
+        <ToolsDropdown
+          servers={mcpServers}
+          onServersChange={setMcpServers}
+        />
       </div>
 
       <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">

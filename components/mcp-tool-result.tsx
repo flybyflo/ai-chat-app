@@ -22,6 +22,7 @@ const MCPToolResult = memo(function MCPToolResult({
   serverName = 'unknown',
 }: MCPToolResultProps) {
   const [showResult, setShowResult] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Show result with a slight delay for better UX
   useEffect(() => {
@@ -53,33 +54,48 @@ const MCPToolResult = memo(function MCPToolResult({
   // Create the new heading format
   const headingText = `mcp::${serverName || 'unknown'}::${toolName}${formatParameters(args)}`;
 
+  // Extract display result for inline preview
+  const getDisplayResult = () => {
+    if (typeof result === 'object' && result !== null) {
+      if (result.content && Array.isArray(result.content)) {
+        const textContent = result.content
+          .filter((item: any) => item.type === 'text')
+          .map((item: any) => item.text)
+          .join(' ');
+        return textContent || 'No result';
+      }
+      if (result.structuredContent?.result !== undefined) {
+        return String(result.structuredContent.result);
+      }
+      if (result.isError) {
+        return `Error: ${result.content?.[0]?.text || 'Unknown error'}`;
+      }
+    }
+    return result ? String(result) : 'No result';
+  };
+
   return (
     <motion.div
       className={cn(
-        'rounded-xl border bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-4 my-3 shadow-sm',
+        'rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 my-2 shadow-sm',
+        'cursor-pointer hover:shadow-md transition-shadow',
         className,
       )}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
+      onClick={() => state === 'result' && setIsExpanded(!isExpanded)}
     >
-      {/* Tool Call Header */}
-      <motion.div
-        className="mb-3"
-        initial={{ scale: 0.95 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.2, delay: 0.1 }}
-      >
-        <div className="flex-1">
-          <h3 className="text-sm font-semibold text-foreground">
-            <code className="px-2 py-1 rounded-md bg-white/60 dark:bg-black/20 text-xs font-mono border">
+      {/* Compact Tool Call Header */}
+      <div className="px-3 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <code className="text-xs font-mono text-foreground bg-white/60 dark:bg-black/20 px-2 py-1 rounded border">
               {headingText}
             </code>
-          </h3>
-          {state === 'call' && (
-            <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+            {state === 'call' && (
               <motion.div
-                className="size-3 border-2 border-current border-t-transparent rounded-full"
+                className="size-3 border-2 border-current border-t-transparent rounded-full text-muted-foreground"
                 animate={{ rotate: 360 }}
                 transition={{
                   duration: 1,
@@ -87,46 +103,113 @@ const MCPToolResult = memo(function MCPToolResult({
                   ease: 'linear',
                 }}
               />
-              Executing...
+            )}
+          </div>
+          {state === 'result' && showResult && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-green-700 dark:text-green-400 truncate max-w-32">
+                {getDisplayResult()}
+              </span>
+              <motion.div
+                className="text-muted-foreground"
+                animate={{ rotate: isExpanded ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </motion.div>
             </div>
           )}
         </div>
-      </motion.div>
+      </div>
 
-      {/* Result Section - Only show when state is 'result' */}
+      {/* Expanded Result Section - Only show when clicked and expanded */}
       <AnimatePresence>
-        {state === 'result' && showResult && (
+        {state === 'result' && showResult && isExpanded && (
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="border-t border-white/20 pt-3"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="border-t border-white/20"
           >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="size-2 rounded-full bg-green-500 animate-pulse" />
-              <h4 className="text-xs font-semibold text-green-700 dark:text-green-400">
-                Result
-              </h4>
-            </div>
+            <div className="px-3 py-2">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="size-2 rounded-full bg-green-500" />
+                <h4 className="text-xs font-semibold text-green-700 dark:text-green-400">
+                  Full Result
+                </h4>
+              </div>
 
-            <motion.div
-              className="bg-white dark:bg-slate-900 rounded-lg p-4 border shadow-inner"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
-              {typeof result === 'object' ? (
-                <pre className="text-sm overflow-x-auto text-foreground font-mono">
-                  {JSON.stringify(result, null, 2)}
-                </pre>
-              ) : (
-                <div className="text-sm font-mono text-foreground bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 px-3 py-2 rounded border">
-                  <span className="font-semibold text-green-800 dark:text-green-300">
-                    {String(result)}
-                  </span>
-                </div>
-              )}
-            </motion.div>
+              <motion.div
+                className="bg-white dark:bg-slate-900 rounded-md p-3 border shadow-inner"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2, delay: 0.1 }}
+              >
+              {(() => {
+                // Extract meaningful content from MCP result structure
+                if (typeof result === 'object' && result !== null) {
+                  // Handle MCP result structure with content array
+                  if (result.content && Array.isArray(result.content)) {
+                    const textContent = result.content
+                      .filter((item: any) => item.type === 'text')
+                      .map((item: any) => item.text)
+                      .join('\n');
+                    
+                    if (textContent) {
+                      return (
+                        <div className="text-sm font-mono text-foreground">
+                          <span className="text-green-800 dark:text-green-300">
+                            {textContent}
+                          </span>
+                        </div>
+                      );
+                    }
+                  }
+                  
+                  // Handle structured content with result field
+                  if (result.structuredContent && result.structuredContent.result !== undefined) {
+                    return (
+                      <div className="text-sm font-mono text-foreground">
+                        <span className="text-green-800 dark:text-green-300">
+                          {String(result.structuredContent.result)}
+                        </span>
+                      </div>
+                    );
+                  }
+                  
+                  // Show error state if isError is true
+                  if (result.isError) {
+                    return (
+                      <div className="text-sm font-mono text-foreground">
+                        <span className="text-red-800 dark:text-red-300">
+                          Error: {result.content?.[0]?.text || 'Unknown error'}
+                        </span>
+                      </div>
+                    );
+                  }
+                  
+                  // Fallback to JSON for unknown object structures
+                  return (
+                    <pre className="text-xs overflow-x-auto text-foreground font-mono">
+                      {JSON.stringify(result, null, 2)}
+                    </pre>
+                  );
+                }
+                
+                // Handle non-object results
+                return (
+                  <div className="text-sm font-mono text-foreground">
+                    <span className="text-green-800 dark:text-green-300">
+                      {String(result)}
+                    </span>
+                  </div>
+                );
+              })()}
+              </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

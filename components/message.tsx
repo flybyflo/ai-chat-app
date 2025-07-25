@@ -11,7 +11,7 @@ import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
 import { Weather } from './weather';
-import { BarChart } from './bar-chart';
+import { UniversalChart } from './universal-chart';
 import { MCPToolResult } from './mcp-tool-result';
 import equal from 'fast-deep-equal';
 import { cn, sanitizeText } from '@/lib/utils';
@@ -162,11 +162,14 @@ const PurePreviewMessage = ({
                 // Define built-in tools
                 const builtInTools = [
                   'getWeather',
+                  'createChart',
                   'createDocument',
                   'updateDocument',
                   'requestSuggestions',
                 ];
                 const isMCPTool = !builtInTools.includes(toolName);
+
+                // console.log('🔧 Tool invocation:', { toolName, state, isMCPTool, toolCallId });
 
                 if (state === 'call') {
                   const { args } = toolInvocation;
@@ -175,15 +178,19 @@ const PurePreviewMessage = ({
                     <div
                       key={toolCallId}
                       className={cx({
-                        skeleton: ['getWeather', 'showChart'].includes(
+                        skeleton: ['getWeather', 'createChart'].includes(
                           toolName,
                         ),
                       })}
                     >
                       {toolName === 'getWeather' ? (
                         <Weather />
-                      ) : toolName === 'showChart' ? (
-                        <BarChart />
+                      ) : toolName === 'createChart' ? (
+                        <UniversalChart
+                          type="bar"
+                          data={[]}
+                          config={{}}
+                        />
                       ) : toolName === 'createDocument' ? (
                         <DocumentPreview isReadonly={isReadonly} args={args} />
                       ) : toolName === 'updateDocument' ? (
@@ -200,10 +207,11 @@ const PurePreviewMessage = ({
                         />
                       ) : isMCPTool ? (
                         <MCPToolResult
-                          toolName={toolName}
+                          toolName={toolName.startsWith('mcp__') ? toolName.split('__').slice(2).join('__') : toolName}
                           args={args}
                           result={null}
                           state="call"
+                          serverName={toolName.startsWith('mcp__') ? toolName.split('__')[1] : undefined}
                         />
                       ) : null}
                     </div>
@@ -218,14 +226,15 @@ const PurePreviewMessage = ({
                     <div key={toolCallId}>
                       {toolName === 'getWeather' ? (
                         <Weather weatherAtLocation={result} />
-                      ) : toolName === 'showChart' ? (
-                        <BarChart
+                      ) : toolName === 'createChart' ? (
+                        <UniversalChart
+                          type={result.type}
+                          data={result.data}
+                          config={result.config}
                           title={result.title}
                           description={result.description}
-                          data={result.data}
                           footer={result.footer}
                           trend={result.trend}
-                          dataLabel={result.dataLabel}
                         />
                       ) : toolName === 'createDocument' ? (
                         <DocumentPreview
@@ -246,10 +255,11 @@ const PurePreviewMessage = ({
                         />
                       ) : isMCPTool ? (
                         <MCPToolResult
-                          toolName={toolName}
+                          toolName={toolName.startsWith('mcp__') ? toolName.split('__').slice(2).join('__') : toolName}
                           args={args}
                           result={result}
                           state="result"
+                          serverName={toolName.startsWith('mcp__') ? toolName.split('__')[1] : undefined}
                         />
                       ) : (
                         <pre>{JSON.stringify(result, null, 2)}</pre>

@@ -16,6 +16,7 @@ import {
   getStreamIdsByChatId,
   saveChat,
   saveMessages,
+  getActiveMcpServersByUserId,
 } from '@/lib/db/queries';
 import { generateUUID, getTrailingMessageId } from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
@@ -23,8 +24,8 @@ import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
-import { showChart } from '@/lib/ai/tools/show-chart';
-import { getMCPTools } from '@/lib/ai/mcp-client';
+import { createChart } from '@/lib/ai/tools/create-chart';
+import { getMCPTools, type MCPServerConfig } from '@/lib/ai/mcp-client';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
@@ -148,17 +149,45 @@ export async function POST(request: Request) {
 
     const stream = createDataStream({
       execute: async (dataStream) => {
-        // Get MCP tools using auto-discovery
+        // Get user's active MCP servers and load tools
         let mcpTools = {};
 
         try {
-          console.log('🔄 Loading MCP tools...');
-          mcpTools = await getMCPTools();
+          console.log('🔄 Loading MCP tools from user servers...');
+          
+          // Get active MCP servers for the user
+          const userMcpServers = await getActiveMcpServersByUserId({ 
+            userId: session.user.id 
+          });
 
-          // Get MCP tools info from the returned tools object
-          const toolCount = Object.keys(mcpTools).length;
-          if (toolCount > 0) {
-            console.log(`✅ Loaded ${toolCount} MCP tools`);
+          if (userMcpServers.length > 0) {
+            console.log(`Found ${userMcpServers.length} active MCP servers for user`);
+            
+            // Convert database format to MCP client format
+            const mcpServerConfigs: MCPServerConfig[] = userMcpServers.map(server => ({
+              id: server.id,
+              name: server.name,
+              url: server.url,
+              apiKey: server.apiKey,
+              isActive: server.isActive,
+            }));
+
+            // Load tools from all active servers
+            mcpTools = await getMCPTools(mcpServerConfigs);
+
+            const toolCount = Object.keys(mcpTools).length;
+            if (toolCount > 0) {
+              console.log(`✅ Loaded ${toolCount} MCP tools from ${userMcpServers.length} servers`);
+            }
+          } else {
+            console.log('No active MCP servers found for user, trying environment fallback...');
+            // Fallback to environment variable for backward compatibility
+            mcpTools = await getMCPTools();
+            
+            const toolCount = Object.keys(mcpTools).length;
+            if (toolCount > 0) {
+              console.log(`✅ Loaded ${toolCount} MCP tools from environment fallback`);
+            }
           }
         } catch (error) {
           console.warn('⚠️  Failed to load MCP tools:', error);
@@ -167,7 +196,7 @@ export async function POST(request: Request) {
         // Combine regular tools with auto-discovered MCP tools
         const regularTools = {
           getWeather,
-          showChart,
+          createChart,
           createDocument: createDocument({ session, dataStream }),
           updateDocument: updateDocument({ session, dataStream }),
           requestSuggestions: requestSuggestions({
@@ -175,6 +204,8 @@ export async function POST(request: Request) {
             dataStream,
           }),
         };
+
+        console.log('📋 Regular tools registered:', Object.keys(regularTools));
 
         const allTools = {
           ...regularTools,
@@ -188,6 +219,7 @@ export async function POST(request: Request) {
 
         console.log(`🛠️  Available tools: ${availableToolNames.length} total 
           (${regularToolNames.length} regular, ${mcpToolNames.length} MCP)`);
+        console.log('📋 All available tool names:', availableToolNames);
 
         if (mcpToolNames.length > 0) {
           console.log('🔗 MCP tools:', mcpToolNames);
@@ -208,13 +240,27 @@ export async function POST(request: Request) {
           onFinish: async ({ response, steps }) => {
             if (session.user?.id) {
               try {
-                const assistantId = getTrailingMessageId({
-                  messages: response.messages.filter(
-                    (message) => message.role === 'assistant',
-                  ),
+                console.log('🔄 onFinish called with response:', {
+                  messageCount: response.messages.length,
+                  messageRoles: response.messages.map(m => m.role),
+                  assistantMessages: response.messages.filter(m => m.role === 'assistant').length,
+                  stepsCount: steps?.length || 0,
+                  hasSteps: !!steps,
+                  steps: steps ? steps.map(s => ({ stepType: s.stepType, toolCalls: s.toolCalls?.map(tc => tc.toolName) })) : null
                 });
 
+                const assistantMessages = response.messages.filter(
+                  (message) => message.role === 'assistant',
+                );
+
+                const assistantId = getTrailingMessageId({
+                  messages: assistantMessages,
+                });
+
+                console.log('🔍 Assistant messages found:', assistantMessages.length, 'Assistant ID:', assistantId);
+
                 if (!assistantId) {
+                  console.error('❌ No assistant message found! Response messages:', response.messages);
                   throw new Error('No assistant message found!');
                 }
 
@@ -224,9 +270,9 @@ export async function POST(request: Request) {
                 });
 
                 // Log multi-step execution details for debugging
-                if (steps && steps.length > 1) {
+                if (steps && steps.length >= 1) {
                   console.log(
-                    `Multi-step execution completed with ${steps.length} steps`,
+                    `Execution completed with ${steps.length} steps`,
                   );
                   const allToolCalls = steps.flatMap(
                     (step) => step.toolCalls || [],
@@ -235,7 +281,22 @@ export async function POST(request: Request) {
                     console.log(
                       `Total tool calls across all steps: ${allToolCalls.length}`,
                     );
+                    console.log('Tool calls details:', allToolCalls.map(tc => ({
+                      toolName: tc.toolName,
+                      hasResult: !!tc.result,
+                      args: tc.args
+                    })));
                   }
+                  
+                  // Log each step
+                  steps.forEach((step, index) => {
+                    console.log(`Step ${index + 1}:`, {
+                      stepType: step.stepType,
+                      toolCallsCount: step.toolCalls?.length || 0,
+                      hasText: !!step.text,
+                      text: step.text?.slice(0, 100) + (step.text?.length > 100 ? '...' : ''),
+                    });
+                  });
                 }
 
                 await saveMessages({
@@ -251,8 +312,8 @@ export async function POST(request: Request) {
                     },
                   ],
                 });
-              } catch (_) {
-                console.error('Failed to save chat');
+              } catch (error) {
+                console.error('Failed to save chat:', error);
               }
             }
           },

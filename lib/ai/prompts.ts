@@ -30,6 +30,21 @@ This is a guide for using artifacts tools: \`createDocument\` and \`updateDocume
 - Immediately after creating a document
 
 Do not update document right after creating it. Wait for user feedback or request to update it.
+
+**When to use \`createChart\`:**
+- When users ask for charts, graphs, or data visualizations
+- When users provide data to be visualized
+- When users mention words like "chart", "graph", "plot", "visualize", "bar chart", "line chart", "pie chart", etc.
+- When users want to see trends or comparisons in data
+- Always use this tool instead of describing charts in text
+
+**Chart types available:**
+- bar: Compare categories with vertical bars
+- line: Show trends over time
+- pie: Show proportions and percentages  
+- area: Show data over time with filled areas
+- scatter: Show correlations between variables
+- radar: Compare multiple variables in circular format
 `;
 
 export const regularPrompt =

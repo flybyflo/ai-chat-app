@@ -27,6 +27,8 @@ import {
   type DBMessage,
   type Chat,
   stream,
+  mcpServer,
+  type McpServer,
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID } from '../utils';
@@ -533,6 +535,36 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatSDKError(
       'bad_request:database',
       'Failed to get stream ids by chat id',
+    );
+  }
+}
+
+export async function getMcpServersByUserId({ userId }: { userId: string }): Promise<McpServer[]> {
+  try {
+    return await db
+      .select()
+      .from(mcpServer)
+      .where(eq(mcpServer.userId, userId))
+      .orderBy(desc(mcpServer.updatedAt));
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to get MCP servers by user id',
+    );
+  }
+}
+
+export async function getActiveMcpServersByUserId({ userId }: { userId: string }): Promise<McpServer[]> {
+  try {
+    return await db
+      .select()
+      .from(mcpServer)
+      .where(and(eq(mcpServer.userId, userId), eq(mcpServer.isActive, true)))
+      .orderBy(desc(mcpServer.updatedAt));
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to get active MCP servers by user id',
     );
   }
 }

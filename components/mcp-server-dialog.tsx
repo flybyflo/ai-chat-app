@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ServerIcon, PlusIcon, TrashIcon, EditIcon } from './icons';
+import { ServerIcon, TrashIcon, EditIcon } from './icons';
 import { Badge } from '@/components/ui/badge';
 import type { McpServer } from '@/lib/db/schema';
 import { toast } from 'sonner';

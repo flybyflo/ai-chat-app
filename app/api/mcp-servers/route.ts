@@ -1,9 +1,9 @@
 import { auth } from '@/app/(auth)/auth';
 import { mcpServer } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 // Database setup
