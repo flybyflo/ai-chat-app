@@ -13,10 +13,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { PlusIcon } from './icons';
 import { Badge } from '@/components/ui/badge';
-import { McpServerDialog } from './mcp-server-dialog';
 import type { McpServer } from '@/lib/db/schema';
 import { cn } from '@/lib/utils';
 import { Wrench, Bot, Cloud, FileText, TrendingUp, MapPin } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface Tool {
   id: string;
@@ -34,16 +34,17 @@ interface ToolsDropdownProps {
   className?: string;
 }
 
-export function ToolsDropdown({ 
-  servers, 
+export function ToolsDropdown({
+  servers,
   onServersChange,
-  className 
+  className,
 }: ToolsDropdownProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const hiddenTriggerRef = useRef<HTMLButtonElement>(null);
+  const router = useRouter();
 
-  // Filter tools based on search query  
+  // Filter tools based on search query
   const filteredTools = useMemo(() => {
     // Define integrated tools
     const integratedTools: Tool[] = [
@@ -59,7 +60,7 @@ export function ToolsDropdown({
         id: 'createChart',
         name: 'Charts',
         description: 'Create data visualizations',
-        type: 'integrated', 
+        type: 'integrated',
         status: 'active',
         icon: <TrendingUp size={14} />,
       },
@@ -90,7 +91,7 @@ export function ToolsDropdown({
     ];
 
     // Convert MCP servers to tools
-    const mcpTools: Tool[] = servers.map(server => ({
+    const mcpTools: Tool[] = servers.map((server) => ({
       id: `mcp-${server.id}`,
       name: server.name,
       description: server.description || server.url,
@@ -103,27 +104,25 @@ export function ToolsDropdown({
     // Combine all tools
     const allTools = [...integratedTools, ...mcpTools];
 
-    return allTools.filter(tool => 
-      tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description.toLowerCase().includes(searchQuery.toLowerCase())
+    return allTools.filter(
+      (tool) =>
+        tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tool.description.toLowerCase().includes(searchQuery.toLowerCase()),
     );
   }, [servers, searchQuery]);
 
-  const activeTools = filteredTools.filter(tool => tool.status === 'active');
+  const activeTools = filteredTools.filter((tool) => tool.status === 'active');
 
   const handleAddNewClick = () => {
     setDropdownOpen(false);
-    // Trigger the hidden button to open the dialog
-    setTimeout(() => {
-      hiddenTriggerRef.current?.click();
-    }, 100);
+    // Navigate to MCP settings page
+    router.push('?view=mcp-settings', { scroll: false });
   };
-
 
   return (
     <>
-      <DropdownMenu 
-        open={dropdownOpen} 
+      <DropdownMenu
+        open={dropdownOpen}
         onOpenChange={(open) => {
           setDropdownOpen(open);
           if (!open) {
@@ -136,9 +135,9 @@ export function ToolsDropdown({
         <DropdownMenuTrigger asChild>
           <Button
             className={cn(
-              "rounded-md rounded-bl-lg p-[7px] h-fit dark:border-zinc-700 hover:dark:bg-zinc-900 hover:bg-zinc-200",
-              "data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
-              className
+              'rounded-md rounded-bl-lg p-[7px] h-fit dark:border-zinc-700 hover:dark:bg-zinc-900 hover:bg-zinc-200',
+              'data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
+              className,
             )}
             variant="ghost"
           >
@@ -156,7 +155,7 @@ export function ToolsDropdown({
               onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing
             />
           </div>
-          
+
           {/* Tools List */}
           <div className="max-h-64 overflow-y-auto">
             {filteredTools.map((tool) => (
@@ -167,24 +166,30 @@ export function ToolsDropdown({
                 <div className="text-muted-foreground flex-shrink-0">
                   {tool.icon}
                 </div>
-                <span className="text-sm font-medium flex-1 truncate">{tool.name}</span>
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                  tool.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
-                }`}></div>
+                <span className="text-sm font-medium flex-1 truncate">
+                  {tool.name}
+                </span>
+                <div
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    tool.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
+                  }`}
+                ></div>
               </div>
             ))}
 
             {/* No Results */}
             {filteredTools.length === 0 && (
-              <DropdownMenuItem disabled className="text-muted-foreground text-sm">
-                {searchQuery ? 
-                  `No tools match "${searchQuery}"` : 
-                  "No tools available"
-                }
+              <DropdownMenuItem
+                disabled
+                className="text-muted-foreground text-sm"
+              >
+                {searchQuery
+                  ? `No tools match "${searchQuery}"`
+                  : 'No tools available'}
               </DropdownMenuItem>
             )}
           </div>
-          
+
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="flex items-center gap-2 text-blue-600 dark:text-blue-400"
@@ -195,18 +200,6 @@ export function ToolsDropdown({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <McpServerDialog
-        servers={servers}
-        onServersChange={onServersChange}
-        trigger={
-          <button
-            ref={hiddenTriggerRef}
-            type="button"
-            style={{ display: 'none' }}
-          />
-        }
-      />
     </>
   );
 }
