@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { ServerIcon } from '@/components/icons';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { McpServer } from '@/lib/db/schema';
-import { toast } from 'sonner';
 
 interface McpSettingsWrapperProps {
   children: React.ReactNode;
