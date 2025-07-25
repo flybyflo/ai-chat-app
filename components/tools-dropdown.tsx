@@ -7,12 +7,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { PlusIcon } from './icons';
-import { Badge } from '@/components/ui/badge';
 import type { McpServer } from '@/lib/db/schema';
 import { cn } from '@/lib/utils';
 import { Wrench, Bot, Cloud, FileText, TrendingUp, MapPin } from 'lucide-react';
@@ -173,7 +171,7 @@ export function ToolsDropdown({
                   className={`w-2 h-2 rounded-full flex-shrink-0 ${
                     tool.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
                   }`}
-                ></div>
+                />
               </div>
             ))}
 

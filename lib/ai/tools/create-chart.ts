@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { defaultChartConfig, chartTypeMetadata } from '@/lib/charts/types';
+import { defaultChartConfig, } from '@/lib/charts/types';
 
 // Zod schema for chart data points
 const chartDataPointSchema = z.record(z.union([z.string(), z.number()]));
