@@ -114,7 +114,7 @@ export function ToolsDropdown({
   const handleAddNewClick = () => {
     setDropdownOpen(false);
     // Navigate to MCP settings page
-    router.push('?view=mcp-settings', { scroll: false });
+    router.push('/settings');
   };
 
   return (
