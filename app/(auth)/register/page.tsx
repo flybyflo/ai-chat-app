@@ -43,7 +43,7 @@ export default function Page() {
       updateSession();
       router.refresh();
     }
-  }, [state]);
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = (formData: FormData) => {
     setEmail(formData.get('email') as string);
