@@ -32,9 +32,12 @@ import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 
 // Helper function to get user tool settings from request body
-function getUserToolSettings(body: any) {
+function getUserToolSettings(body: PostRequestBody) {
   const toolSettings = body.toolSettings;
+  console.log('🔧 Raw tool settings from body:', toolSettings);
+  
   if (!toolSettings) {
+    console.log('📋 No tool settings found, using defaults (all enabled)');
     // Default settings - all tools enabled
     return {
       integratedTools: {
@@ -49,6 +52,7 @@ function getUserToolSettings(body: any) {
     };
   }
   
+  console.log('✅ Using provided tool settings:', toolSettings);
   return toolSettings;
 }
 
@@ -57,21 +61,40 @@ function filterToolsBySettings(tools: any, mcpTools: any, userMcpServers: any[],
   const filteredRegularTools: any = {};
   const filteredMcpTools: any = {};
   
+  console.log('🔍 Filtering tools with settings:', JSON.stringify(toolSettings, null, 2));
+  console.log('🛠️  Available regular tools:', Object.keys(tools));
+  console.log('⚙️  Available MCP tools:', Object.keys(mcpTools));
+  
   // Filter integrated tools
   if (toolSettings.integratedTools?.getWeather !== false && tools.getWeather) {
     filteredRegularTools.getWeather = tools.getWeather;
+    console.log('✅ Enabled: getWeather');
+  } else {
+    console.log('❌ Disabled: getWeather');
   }
   if (toolSettings.integratedTools?.createChart !== false && tools.createChart) {
     filteredRegularTools.createChart = tools.createChart;
+    console.log('✅ Enabled: createChart');
+  } else {
+    console.log('❌ Disabled: createChart');
   }
   if (toolSettings.integratedTools?.createDocument !== false && tools.createDocument) {
     filteredRegularTools.createDocument = tools.createDocument;
+    console.log('✅ Enabled: createDocument');
+  } else {
+    console.log('❌ Disabled: createDocument');
   }
   if (toolSettings.integratedTools?.updateDocument !== false && tools.updateDocument) {
     filteredRegularTools.updateDocument = tools.updateDocument;
+    console.log('✅ Enabled: updateDocument');
+  } else {
+    console.log('❌ Disabled: updateDocument');
   }
   if (toolSettings.integratedTools?.requestSuggestions !== false && tools.requestSuggestions) {
     filteredRegularTools.requestSuggestions = tools.requestSuggestions;
+    console.log('✅ Enabled: requestSuggestions');
+  } else {
+    console.log('❌ Disabled: requestSuggestions');
   }
   
   // Filter MCP tools
@@ -218,7 +241,7 @@ export async function POST(request: Request) {
     const stream = createDataStream({
       execute: async (dataStream) => {
         // Get user tool settings from request body
-        const toolSettings = getUserToolSettings(body);
+        const toolSettings = getUserToolSettings(requestBody);
         console.log('🔧 User tool settings:', toolSettings);
         
         // Get user's active MCP servers and load tools

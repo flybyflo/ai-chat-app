@@ -812,6 +812,11 @@ export function ToolsDropdown({
   const hiddenTriggerRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
 
+  const {
+    isIntegratedToolEnabled,
+    isMcpServerEnabled,
+  } = useToolSettings();
+
   // Filter tools based on search query
   const filteredTools = useMemo(() => {
     // Define integrated tools
@@ -821,7 +826,7 @@ export function ToolsDropdown({
         name: 'Weather',
         description: 'Get current weather information',
         type: 'integrated',
-        status: 'active',
+        status: isIntegratedToolEnabled('getWeather') ? 'active' : 'inactive',
         icon: <MapPin size={14} />,
       },
       {
@@ -829,7 +834,7 @@ export function ToolsDropdown({
         name: 'Charts',
         description: 'Create data visualizations',
         type: 'integrated',
-        status: 'active',
+        status: isIntegratedToolEnabled('createChart') ? 'active' : 'inactive',
         icon: <TrendingUp size={14} />,
       },
       {
@@ -837,7 +842,7 @@ export function ToolsDropdown({
         name: 'Documents',
         description: 'Create and edit documents',
         type: 'integrated',
-        status: 'active',
+        status: isIntegratedToolEnabled('createDocument') ? 'active' : 'inactive',
         icon: <FileText size={14} />,
       },
       {
@@ -845,7 +850,7 @@ export function ToolsDropdown({
         name: 'Update Document',
         description: 'Update existing documents',
         type: 'integrated',
-        status: 'active',
+        status: isIntegratedToolEnabled('updateDocument') ? 'active' : 'inactive',
         icon: <FileText size={14} />,
       },
       {
@@ -853,7 +858,7 @@ export function ToolsDropdown({
         name: 'Suggestions',
         description: 'Get content suggestions',
         type: 'integrated',
-        status: 'active',
+        status: isIntegratedToolEnabled('requestSuggestions') ? 'active' : 'inactive',
         icon: <Bot size={14} />,
       },
     ];
@@ -864,7 +869,7 @@ export function ToolsDropdown({
       name: server.name,
       description: server.description || server.url,
       type: 'mcp',
-      status: server.isActive ? 'active' : 'inactive',
+      status: server.isActive && isMcpServerEnabled(server.id) ? 'active' : 'inactive',
       icon: <Cloud size={14} />,
       serverName: server.name,
     }));
@@ -877,7 +882,7 @@ export function ToolsDropdown({
         tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tool.description.toLowerCase().includes(searchQuery.toLowerCase()),
     );
-  }, [servers, searchQuery]);
+  }, [servers, searchQuery, isIntegratedToolEnabled, isMcpServerEnabled]);
 
   const activeTools = filteredTools.filter((tool) => tool.status === 'active');
 

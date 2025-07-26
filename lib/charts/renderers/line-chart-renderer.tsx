@@ -51,7 +51,7 @@ export function LineChartRenderer({
         />
         <ChartTooltip
           cursor={false}
-          content={<ChartTooltipContent hideLabel />}
+          content={<ChartTooltipContent hideLabel formatter={(value, name) => [value, '']} />}
         />
         {series.map((serie, index) => (
           <Line
