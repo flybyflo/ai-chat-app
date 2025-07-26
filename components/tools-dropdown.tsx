@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { PlusIcon } from './icons';
 import type { McpServer } from '@/lib/db/schema';
 import { cn } from '@/lib/utils';
@@ -35,7 +37,7 @@ interface ToolsDropdownProps {
   onConfigureToggle?: (expanded: boolean) => void;
 }
 
-type ViewMode = 'configure' | 'integrated-tools' | 'mcp-servers' | 'mcp-server-details';
+type ViewMode = 'configure' | 'integrated-tools' | 'mcp-servers' | 'mcp-server-details' | 'add-mcp-server';
 
 // Inline Tools Configuration Component
 export function InlineToolsConfiguration({
@@ -52,11 +54,80 @@ export function InlineToolsConfiguration({
   const [serverTools, setServerTools] = useState<any[]>([]);
   const [loadingTools, setLoadingTools] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
+  interface McpServerForm {
+    name: string;
+    url: string;
+    apiKey: string;
+    description: string;
+    isActive: boolean;
+  }
+
+  const form = useForm<McpServerForm>({
+    defaultValues: {
+      name: '',
+      url: '',
+      apiKey: '',
+      description: '',
+      isActive: true,
+    },
+  });
+
   const handleAddNewClick = () => {
-    onClose();
-    router.push('/settings');
+    setCurrentView('add-mcp-server');
+    setSearchQuery('');
+    form.reset();
+  };
+
+  const handleBackToMcpServers = () => {
+    setCurrentView('mcp-servers');
+    setSelectedServer(null);
+    setServerTools([]);
+    setSearchQuery('');
+  };
+
+  const onSubmit = async (data: McpServerForm) => {
+    // Basic validation
+    if (!data.name?.trim()) {
+      return;
+    }
+    if (!data.url?.trim()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/mcp-servers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: data.name.trim(),
+          url: data.url.trim(),
+          apiKey: data.apiKey?.trim() || null,
+          description: data.description?.trim() || null,
+          isActive: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create server');
+      }
+
+      const newServer = await response.json();
+      onServersChange([...servers, newServer]);
+      
+      // Reset form and go back to servers list
+      form.reset();
+      setCurrentView('mcp-servers');
+    } catch (error) {
+      console.error('Error creating server:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleViewIntegratedTools = () => {
@@ -71,13 +142,6 @@ export function InlineToolsConfiguration({
 
   const handleBackToConfigure = () => {
     setCurrentView('configure');
-    setSearchQuery('');
-  };
-
-  const handleBackToMcpServers = () => {
-    setCurrentView('mcp-servers');
-    setSelectedServer(null);
-    setServerTools([]);
     setSearchQuery('');
   };
 
@@ -226,18 +290,6 @@ export function InlineToolsConfiguration({
               <ChevronRight size={16} className="text-muted-foreground" />
             </button>
           </div>
-
-          <div className="pt-2 border-t dark:border-zinc-700">
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full justify-start text-blue-600 dark:text-blue-400 rounded-lg"
-              onClick={handleAddNewClick}
-            >
-              <PlusIcon size={14} />
-              Add MCP Server
-            </Button>
-          </div>
         </>
       ) : currentView === 'integrated-tools' ? (
         // Integrated Tools View
@@ -306,6 +358,16 @@ export function InlineToolsConfiguration({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-1 h-10 text-sm bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg"
             />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+              onClick={handleAddNewClick}
+            >
+              <PlusIcon size={14} />
+              <span className="ml-1 text-xs">Add</span>
+            </Button>
           </div>
 
           <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -343,18 +405,6 @@ export function InlineToolsConfiguration({
                   </div>
                 </button>
               ))}
-          </div>
-
-          <div className="pt-2 border-t dark:border-zinc-700">
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full justify-start text-blue-600 dark:text-blue-400 rounded-lg"
-              onClick={handleAddNewClick}
-            >
-              <PlusIcon size={14} />
-              Add MCP Server
-            </Button>
           </div>
         </>
       ) : currentView === 'mcp-server-details' && selectedServer ? (
@@ -431,6 +481,63 @@ export function InlineToolsConfiguration({
                 No tools available or unable to fetch tools from this server
               </div>
             )}
+          </div>
+        </>
+      ) : currentView === 'add-mcp-server' ? (
+        // Add MCP Server View
+        <>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-8 p-0 rounded-lg"
+              onClick={handleBackToMcpServers}
+            >
+              <ArrowLeft size={14} />
+            </Button>
+            <div className="flex-1">
+              <div className="text-sm font-medium">Add New MCP Server</div>
+              <div className="text-xs text-muted-foreground">Configure a new MCP server to extend your AI assistant capabilities</div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-3">
+              <Input
+                placeholder="Server Name"
+                className="h-9 text-sm bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg"
+                {...form.register('name', { required: true })}
+              />
+
+              <Input
+                placeholder="Server URL (e.g., http://localhost:8000/sse/)"
+                className="h-9 text-sm bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg"
+                {...form.register('url', { required: true })}
+              />
+
+              <Input
+                type="password"
+                placeholder="API Key (optional)"
+                className="h-9 text-sm bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg"
+                {...form.register('apiKey')}
+              />
+
+              <Textarea
+                placeholder="Description (optional)"
+                className="min-h-[60px] text-sm bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg resize-none"
+                {...form.register('description')}
+              />
+            </div>
+
+            <Button
+              type="button"
+              disabled={isSubmitting}
+              className="w-full h-9"
+              onClick={form.handleSubmit(onSubmit)}
+            >
+              {isSubmitting ? 'Adding...' : 'Add Server'}
+            </Button>
           </div>
         </>
       ) : null}
