@@ -514,8 +514,9 @@ export function InlineToolsConfiguration({
                   className="w-full flex items-center gap-3 p-3 bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl border border-input"
                 >
                   <Cloud size={16} className="text-muted-foreground shrink-0" />
-                  <div 
-                    className="flex-1 min-w-0 cursor-pointer"
+                  <button
+                    type="button"
+                    className="flex-1 min-w-0 cursor-pointer text-left"
                     onClick={() => handleViewServerDetails(server)}
                   >
                     <div className="text-sm font-medium truncate">
@@ -526,7 +527,7 @@ export function InlineToolsConfiguration({
                         {server.description}
                       </div>
                     )}
-                  </div>
+                  </button>
                   <div className="flex items-center gap-2">
                     <Switch
                       checked={server.isActive && isMcpServerEnabled(server.id)}
@@ -777,7 +778,7 @@ export function InlineToolsConfiguration({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete MCP Server</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{serverToDelete?.name}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{serverToDelete?.name}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
