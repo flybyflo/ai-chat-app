@@ -3,6 +3,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,14 +11,37 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlusIcon } from './icons';
 import type { McpServer } from '@/lib/db/schema';
 import { cn } from '@/lib/utils';
-import { Wrench, Bot, Cloud, FileText, TrendingUp, MapPin, ArrowLeft, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  Wrench,
+  Bot,
+  Cloud,
+  FileText,
+  TrendingUp,
+  MapPin,
+  ArrowLeft,
+  ChevronRight,
+  Loader2,
+  Trash2,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useToolSettings } from '@/hooks/use-tool-settings';
 
 interface Tool {
   id: string;
@@ -37,7 +61,12 @@ interface ToolsDropdownProps {
   onConfigureToggle?: (expanded: boolean) => void;
 }
 
-type ViewMode = 'configure' | 'integrated-tools' | 'mcp-servers' | 'mcp-server-details' | 'add-mcp-server';
+type ViewMode =
+  | 'configure'
+  | 'integrated-tools'
+  | 'mcp-servers'
+  | 'mcp-server-details'
+  | 'add-mcp-server';
 
 // Inline Tools Configuration Component
 export function InlineToolsConfiguration({
@@ -55,7 +84,25 @@ export function InlineToolsConfiguration({
   const [loadingTools, setLoadingTools] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [serverToDelete, setServerToDelete] = useState<{ id: string; name: string } | null>(null);
   const router = useRouter();
+
+  const {
+    isIntegratedToolEnabled,
+    isMcpServerEnabled,
+    isMcpToolEnabled,
+    toggleIntegratedTool,
+    toggleMcpServer,
+    toggleMcpTool,
+    enableAllIntegratedTools,
+    disableAllIntegratedTools,
+    enableAllMcpServers,
+    disableAllMcpServers,
+    enableAllToolsForServer,
+    disableAllToolsForServer,
+    getEnabledCounts,
+  } = useToolSettings();
 
   interface McpServerForm {
     name: string;
@@ -119,7 +166,7 @@ export function InlineToolsConfiguration({
 
       const newServer = await response.json();
       onServersChange([...servers, newServer]);
-      
+
       // Reset form and go back to servers list
       form.reset();
       setCurrentView('mcp-servers');
@@ -149,7 +196,7 @@ export function InlineToolsConfiguration({
     setSelectedServer(server);
     setCurrentView('mcp-server-details');
     setSearchQuery('');
-    
+
     setLoadingTools(true);
     try {
       const response = await fetch(`/api/mcp-servers/${server.id}/tools`);
@@ -167,6 +214,34 @@ export function InlineToolsConfiguration({
     }
   };
 
+  const handleDeleteServer = (serverId: string, serverName: string) => {
+    setServerToDelete({ id: serverId, name: serverName });
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteServer = async () => {
+    if (!serverToDelete) return;
+
+    try {
+      const response = await fetch(`/api/mcp-servers/${serverToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete server');
+      }
+
+      // Update the servers list
+      const updatedServers = servers.filter(s => s.id !== serverToDelete.id);
+      onServersChange(updatedServers);
+    } catch (error) {
+      console.error('Error deleting server:', error);
+    } finally {
+      setDeleteDialogOpen(false);
+      setServerToDelete(null);
+    }
+  };
+
   const filteredTools = useMemo(() => {
     const integratedTools: Tool[] = [
       {
@@ -174,7 +249,7 @@ export function InlineToolsConfiguration({
         name: 'Weather',
         description: 'Get current weather information',
         type: 'integrated',
-        status: 'active',
+        status: isIntegratedToolEnabled('getWeather') ? 'active' : 'inactive',
         icon: <MapPin size={14} />,
       },
       {
@@ -182,7 +257,7 @@ export function InlineToolsConfiguration({
         name: 'Charts',
         description: 'Create data visualizations',
         type: 'integrated',
-        status: 'active',
+        status: isIntegratedToolEnabled('createChart') ? 'active' : 'inactive',
         icon: <TrendingUp size={14} />,
       },
       {
@@ -190,7 +265,9 @@ export function InlineToolsConfiguration({
         name: 'Documents',
         description: 'Create and edit documents',
         type: 'integrated',
-        status: 'active',
+        status: isIntegratedToolEnabled('createDocument')
+          ? 'active'
+          : 'inactive',
         icon: <FileText size={14} />,
       },
       {
@@ -198,7 +275,9 @@ export function InlineToolsConfiguration({
         name: 'Update Document',
         description: 'Update existing documents',
         type: 'integrated',
-        status: 'active',
+        status: isIntegratedToolEnabled('updateDocument')
+          ? 'active'
+          : 'inactive',
         icon: <FileText size={14} />,
       },
       {
@@ -206,7 +285,9 @@ export function InlineToolsConfiguration({
         name: 'Suggestions',
         description: 'Get content suggestions',
         type: 'integrated',
-        status: 'active',
+        status: isIntegratedToolEnabled('requestSuggestions')
+          ? 'active'
+          : 'inactive',
         icon: <Bot size={14} />,
       },
     ];
@@ -216,7 +297,10 @@ export function InlineToolsConfiguration({
       name: server.name,
       description: server.description || server.url,
       type: 'mcp',
-      status: server.isActive ? 'active' : 'inactive',
+      status:
+        server.isActive && isMcpServerEnabled(server.id)
+          ? 'active'
+          : 'inactive',
       icon: <Cloud size={14} />,
       serverName: server.name,
     }));
@@ -228,33 +312,35 @@ export function InlineToolsConfiguration({
         tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tool.description.toLowerCase().includes(searchQuery.toLowerCase()),
     );
-  }, [servers, searchQuery]);
+  }, [servers, searchQuery, isIntegratedToolEnabled, isMcpServerEnabled]);
 
   return (
-    <div className="w-full space-y-4">
+    <div className="size-full flex flex-col space-y-4">
       {currentView === 'configure' ? (
         // Configure View
         <>
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={onClose}
-              className="size-8 p-0 rounded-lg"
+              className="size-8 p-0 rounded-lg bg-transparent"
             >
               <ArrowLeft size={14} />
             </Button>
             <div className="flex-1">
               <div className="text-sm font-medium">Configure Tools</div>
-              <div className="text-xs text-muted-foreground">Manage integrated tools and MCP servers</div>
+              <div className="text-xs text-muted-foreground">
+                Manage integrated tools and MCP servers
+              </div>
             </div>
           </div>
 
           <div className="space-y-3">
             <button
               type="button"
-              className="w-full flex items-center justify-between p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border dark:border-zinc-700"
+              className="w-full flex items-center justify-between p-3 bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border border-input"
               onClick={handleViewIntegratedTools}
             >
               <div className="flex items-center gap-3">
@@ -264,7 +350,8 @@ export function InlineToolsConfiguration({
                 <div className="text-left">
                   <div className="text-sm font-medium">Integrated Tools</div>
                   <div className="text-xs text-muted-foreground">
-                    Built-in tools ({filteredTools.filter(t => t.type === 'integrated').length} available)
+                    Built-in tools ({getEnabledCounts().integratedTools.enabled}{' '}
+                    of {getEnabledCounts().integratedTools.total} enabled)
                   </div>
                 </div>
               </div>
@@ -273,17 +360,26 @@ export function InlineToolsConfiguration({
 
             <button
               type="button"
-              className="w-full flex items-center justify-between p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border dark:border-zinc-700"
+              className="w-full flex items-center justify-between p-3 bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border border-input"
               onClick={handleViewMcpServers}
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-md">
-                  <Cloud size={16} className="text-green-600 dark:text-green-400" />
+                  <Cloud
+                    size={16}
+                    className="text-green-600 dark:text-green-400"
+                  />
                 </div>
                 <div className="text-left">
                   <div className="text-sm font-medium">MCP Servers</div>
                   <div className="text-xs text-muted-foreground">
-                    External tools ({servers.filter(s => s.isActive).length} active, {servers.length} total)
+                    External tools (
+                    {
+                      servers.filter(
+                        (s) => s.isActive && isMcpServerEnabled(s.id),
+                      ).length
+                    }{' '}
+                    enabled, {servers.length} total)
                   </div>
                 </div>
               </div>
@@ -297,9 +393,9 @@ export function InlineToolsConfiguration({
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="size-8 p-0 rounded-lg"
+              className="size-8 p-0 rounded-lg bg-transparent"
               onClick={handleBackToConfigure}
             >
               <ArrowLeft size={14} />
@@ -308,36 +404,66 @@ export function InlineToolsConfiguration({
               placeholder="Search integrated tools..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 h-10 text-sm bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg"
+              className="flex-1 h-8 text-sm bg-transparent border border-input rounded-lg"
             />
+            <div className="flex gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs px-2 h-8 bg-transparent"
+                onClick={enableAllIntegratedTools}
+              >
+                Enable All
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs px-2 h-8 bg-transparent"
+                onClick={disableAllIntegratedTools}
+              >
+                Disable All
+              </Button>
+            </div>
           </div>
 
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {filteredTools
-              .filter(tool => 
-                tool.type === 'integrated' && 
-                (!searchQuery || tool.name.toLowerCase().includes(searchQuery.toLowerCase()))
-              )
-              .map((tool) => (
-                <div
-                  key={tool.id}
-                  className="flex items-center gap-3 p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-default rounded-xl border-b dark:border-zinc-700 last:border-0"
-                >
-                  <div className="text-muted-foreground shrink-0">
-                    {tool.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">
-                      {tool.name}
+          <ScrollArea className="h-[280px] [&>[data-radix-scroll-area-scrollbar]]:hidden">
+            <div className="space-y-2 pr-4 overflow-x-hidden">
+              {filteredTools
+                .filter(
+                  (tool) =>
+                    tool.type === 'integrated' &&
+                    (!searchQuery ||
+                      tool.name
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase())),
+                )
+                .map((tool) => (
+                  <div
+                    key={tool.id}
+                    className="flex items-center gap-3 p-2 bg-transparent border border-input rounded-lg min-w-0"
+                  >
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="text-sm font-medium truncate">
+                        {tool.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {tool.description.length > 80
+                          ? `${tool.description.slice(0, 80)}...`
+                          : tool.description}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {tool.description}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Switch
+                        checked={tool.status === 'active'}
+                        onCheckedChange={() => toggleIntegratedTool(tool.id)}
+                      />
                     </div>
                   </div>
-                  <div className="size-2 rounded-full shrink-0 bg-green-500" />
-                </div>
-              ))}
-          </div>
+                ))}
+            </div>
+          </ScrollArea>
         </>
       ) : currentView === 'mcp-servers' ? (
         // MCP Servers View
@@ -345,9 +471,9 @@ export function InlineToolsConfiguration({
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="size-8 p-0 rounded-lg"
+              className="size-8 p-0 rounded-lg bg-transparent"
               onClick={handleBackToConfigure}
             >
               <ArrowLeft size={14} />
@@ -356,13 +482,13 @@ export function InlineToolsConfiguration({
               placeholder="Search MCP servers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 h-10 text-sm bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg"
+              className="flex-1 h-8 text-sm bg-transparent border border-input rounded-lg"
             />
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+              className="text-blue-600 dark:text-blue-400 bg-transparent hover:bg-blue-50 dark:hover:bg-blue-950/20"
               onClick={handleAddNewClick}
             >
               <PlusIcon size={14} />
@@ -372,20 +498,26 @@ export function InlineToolsConfiguration({
 
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {servers
-              .filter(server => 
-                !searchQuery || 
-                server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                server.description?.toLowerCase().includes(searchQuery.toLowerCase())
+              .filter(
+                (server) =>
+                  !searchQuery ||
+                  server.name
+                    .toLowerCase()
+                    .includes(searchQuery.toLowerCase()) ||
+                  server.description
+                    ?.toLowerCase()
+                    .includes(searchQuery.toLowerCase()),
               )
               .map((server) => (
-                <button
+                <div
                   key={server.id}
-                  type="button"
-                  className="w-full flex items-center gap-3 p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border-b dark:border-zinc-700 last:border-0 text-left"
-                  onClick={() => handleViewServerDetails(server)}
+                  className="w-full flex items-center gap-3 p-3 bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl border border-input"
                 >
                   <Cloud size={16} className="text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
+                  <div 
+                    className="flex-1 min-w-0 cursor-pointer"
+                    onClick={() => handleViewServerDetails(server)}
+                  >
                     <div className="text-sm font-medium truncate">
                       {server.name}
                     </div>
@@ -396,109 +528,206 @@ export function InlineToolsConfiguration({
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <div
-                      className={`size-2 rounded-full shrink-0 ${
-                        server.isActive ? 'bg-green-500' : 'bg-gray-400'
-                      }`}
+                    <Switch
+                      checked={server.isActive && isMcpServerEnabled(server.id)}
+                      onCheckedChange={() => {
+                        if (server.isActive) {
+                          // Only toggle our internal setting if server is already active
+                          toggleMcpServer(server.id);
+                        }
+                      }}
+                      disabled={!server.isActive}
                     />
-                    <ChevronRight size={14} className="text-muted-foreground" />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteServer(server.id, server.name);
+                      }}
+                      className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded text-red-600 dark:text-red-400"
+                      title="Delete server"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleViewServerDetails(server)}
+                      className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
+                    >
+                      <ChevronRight size={14} className="text-muted-foreground" />
+                    </button>
                   </div>
-                </button>
+                </div>
               ))}
           </div>
         </>
       ) : currentView === 'mcp-server-details' && selectedServer ? (
         // Server Details View
-        <>
+        <div className="flex flex-col h-full space-y-4">
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="size-8 p-0 rounded-lg"
+              className="size-8 p-0 rounded-lg bg-transparent"
               onClick={handleBackToMcpServers}
             >
               <ArrowLeft size={14} />
             </Button>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{selectedServer.name}</div>
-              <div className="text-xs text-muted-foreground truncate">
-                {serverTools.length} tools available
-              </div>
-            </div>
-            <div
-              className={`size-2 rounded-full shrink-0 ${
-                selectedServer.isActive ? 'bg-green-500' : 'bg-gray-400'
-              }`}
-            />
-          </div>
-
-          <div className="space-y-3 p-3 bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-xl">
-            <div>
-              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">URL</div>
-              <div className="text-sm break-all">{selectedServer.url}</div>
-            </div>
-            {selectedServer.description && (
-              <div>
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description</div>
-                <div className="text-sm">{selectedServer.description}</div>
-              </div>
-            )}
-            <div>
-              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</div>
-              <div className="text-sm">
-                {selectedServer.isActive ? (
-                  <span className="text-green-600">Active</span>
-                ) : (
-                  <span className="text-gray-600">Inactive</span>
-                )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium truncate">
+                    {selectedServer.name}
+                  </div>
+                  <Badge
+                    variant={selectedServer.isActive && isMcpServerEnabled(selectedServer.id) ? 'default' : 'secondary'}
+                    className="text-xs px-1.5 py-0"
+                  >
+                    {selectedServer.isActive && isMcpServerEnabled(selectedServer.id) ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground truncate flex-1 text-center mx-4">
+                  {selectedServer.url}
+                </div>
+                <div className="text-xs text-muted-foreground font-medium">
+                  {serverTools.length} tools
+                </div>
               </div>
             </div>
           </div>
 
-          <div>
-            <div className="text-sm font-medium mb-2">Available Tools</div>
+          {selectedServer.description && (
+            <div className="p-3 bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-xl">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                Description
+              </div>
+              <div className="text-sm">{selectedServer.description}</div>
+            </div>
+          )}
+
+          <div className="flex flex-col flex-1">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium">Available Tools</div>
+              {serverTools.length > 0 && (
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-2 h-6 bg-transparent"
+                    onClick={() =>
+                      selectedServer &&
+                      enableAllToolsForServer(
+                        selectedServer.id,
+                        serverTools.map((t) => t.name),
+                      )
+                    }
+                  >
+                    Enable All
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-2 h-6 bg-transparent"
+                    onClick={() =>
+                      selectedServer &&
+                      disableAllToolsForServer(
+                        selectedServer.id,
+                        serverTools.map((t) => t.name),
+                      )
+                    }
+                  >
+                    Disable All
+                  </Button>
+                </div>
+              )}
+            </div>
             {loadingTools ? (
               <div className="flex items-center justify-center p-6">
-                <Loader2 size={16} className="animate-spin text-muted-foreground" />
-                <span className="ml-2 text-sm text-muted-foreground">Loading tools...</span>
+                <Loader2
+                  size={16}
+                  className="animate-spin text-muted-foreground"
+                />
+                <span className="ml-2 text-sm text-muted-foreground">
+                  Loading tools...
+                </span>
               </div>
             ) : serverTools.length > 0 ? (
-              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                {serverTools.map((tool, index) => (
-                  <Badge
-                    key={`${tool.name}-${index}`}
-                    variant="secondary"
-                    className="cursor-default hover:bg-secondary/60"
-                    title={tool.description ? `${tool.description}${tool.parameters && Object.keys(tool.parameters).length > 0 ? ` (${Object.keys(tool.parameters).length} parameters)` : ''}` : tool.name}
-                  >
-                    {tool.name}
-                  </Badge>
-                ))}
-              </div>
+              <ScrollArea className="h-[280px] [&>[data-radix-scroll-area-scrollbar]]:hidden">
+                <div className="space-y-2 pr-4 overflow-x-hidden">
+                  {serverTools.map((tool, index) => (
+                    <div
+                      key={`${tool.name}-${index}`}
+                      className="flex items-center gap-3 p-2 bg-transparent border border-input rounded-lg min-w-0"
+                    >
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="text-sm font-medium truncate">
+                          {tool.name}
+                        </div>
+                        {tool.description && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {tool.description.length > 80
+                              ? `${tool.description.slice(0, 80)}...`
+                              : tool.description}
+                            {tool.parameters &&
+                              Object.keys(tool.parameters).length > 0 && (
+                                <span className="ml-1">
+                                  ({Object.keys(tool.parameters).length}{' '}
+                                  parameters)
+                                </span>
+                              )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Switch
+                          checked={
+                            selectedServer
+                              ? isMcpToolEnabled(selectedServer.id, tool.name)
+                              : false
+                          }
+                          onCheckedChange={() =>
+                            selectedServer &&
+                            toggleMcpTool(selectedServer.id, tool.name)
+                          }
+                          disabled={
+                            !selectedServer?.isActive ||
+                            !isMcpServerEnabled(selectedServer?.id || '')
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
             ) : (
               <div className="text-center p-4 text-sm text-muted-foreground">
                 No tools available or unable to fetch tools from this server
               </div>
             )}
           </div>
-        </>
+        </div>
       ) : currentView === 'add-mcp-server' ? (
         // Add MCP Server View
         <>
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="size-8 p-0 rounded-lg"
+              className="size-8 p-0 rounded-lg bg-transparent"
               onClick={handleBackToMcpServers}
             >
               <ArrowLeft size={14} />
             </Button>
             <div className="flex-1">
               <div className="text-sm font-medium">Add New MCP Server</div>
-              <div className="text-xs text-muted-foreground">Configure a new MCP server to extend your AI assistant capabilities</div>
+              <div className="text-xs text-muted-foreground">
+                Configure a new MCP server to extend your AI assistant
+                capabilities
+              </div>
             </div>
           </div>
 
@@ -541,6 +770,27 @@ export function InlineToolsConfiguration({
           </div>
         </>
       ) : null}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete MCP Server</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{serverToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteServer}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -674,7 +924,7 @@ export function ToolsDropdown({
     setSelectedServer(server);
     setCurrentView('mcp-server-details');
     setSearchQuery('');
-    
+
     // Fetch tools for this server
     setLoadingTools(true);
     try {
@@ -705,10 +955,10 @@ export function ToolsDropdown({
     return (
       <Button
         className={cn(
-          'rounded-md rounded-bl-lg p-[7px] h-fit dark:border-zinc-700 hover:dark:bg-zinc-900 hover:bg-zinc-200',
+          'rounded-md rounded-bl-lg p-[7px] h-fit dark:border-zinc-700 hover:dark:bg-zinc-900 hover:bg-zinc-200 bg-transparent',
           className,
         )}
-        variant="ghost"
+        variant="outline"
         onClick={handleConfigureClick}
       >
         <Wrench size={14} />
@@ -741,14 +991,20 @@ export function ToolsDropdown({
             <Wrench size={14} />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[320px] p-0 rounded-2xl bg-muted dark:border-zinc-700" side="top">
+        <DropdownMenuContent
+          align="start"
+          className="w-[320px] p-0 rounded-2xl bg-muted dark:border-zinc-700"
+          side="top"
+        >
           {currentView === 'configure' ? (
             // Configure View - Navigation to tool categories
             <>
               {/* Header */}
               <div className="border-b border-border/50 p-4 rounded-t-2xl">
                 <div className="text-sm font-medium">Configure Tools</div>
-                <div className="text-xs text-muted-foreground">Manage integrated tools and MCP servers</div>
+                <div className="text-xs text-muted-foreground">
+                  Manage integrated tools and MCP servers
+                </div>
               </div>
 
               {/* Navigation Options */}
@@ -761,12 +1017,22 @@ export function ToolsDropdown({
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-md">
-                      <Bot size={16} className="text-blue-600 dark:text-blue-400" />
+                      <Bot
+                        size={16}
+                        className="text-blue-600 dark:text-blue-400"
+                      />
                     </div>
                     <div className="text-left">
-                      <div className="text-sm font-medium">Integrated Tools</div>
+                      <div className="text-sm font-medium">
+                        Integrated Tools
+                      </div>
                       <div className="text-xs text-muted-foreground">
-                        Built-in tools ({filteredTools.filter(t => t.type === 'integrated').length} available)
+                        Built-in tools (
+                        {
+                          filteredTools.filter((t) => t.type === 'integrated')
+                            .length
+                        }{' '}
+                        available)
                       </div>
                     </div>
                   </div>
@@ -781,12 +1047,17 @@ export function ToolsDropdown({
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-md">
-                      <Cloud size={16} className="text-green-600 dark:text-green-400" />
+                      <Cloud
+                        size={16}
+                        className="text-green-600 dark:text-green-400"
+                      />
                     </div>
                     <div className="text-left">
                       <div className="text-sm font-medium">MCP Servers</div>
                       <div className="text-xs text-muted-foreground">
-                        External tools ({servers.filter(s => s.isActive).length} active, {servers.length} total)
+                        External tools (
+                        {servers.filter((s) => s.isActive).length} active,{' '}
+                        {servers.length} total)
                       </div>
                     </div>
                   </div>
@@ -836,9 +1107,13 @@ export function ToolsDropdown({
               {/* Tools List */}
               <div className="max-h-80 overflow-y-auto p-4">
                 {filteredTools
-                  .filter(tool => 
-                    tool.type === 'integrated' && 
-                    (!searchQuery || tool.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .filter(
+                    (tool) =>
+                      tool.type === 'integrated' &&
+                      (!searchQuery ||
+                        tool.name
+                          .toLowerCase()
+                          .includes(searchQuery.toLowerCase())),
                   )
                   .map((tool) => (
                     <div
@@ -859,13 +1134,19 @@ export function ToolsDropdown({
                       <div className="size-2 rounded-full shrink-0 bg-green-500" />
                     </div>
                   ))}
-                
-                {filteredTools.filter(tool => 
-                  tool.type === 'integrated' && 
-                  (!searchQuery || tool.name.toLowerCase().includes(searchQuery.toLowerCase()))
+
+                {filteredTools.filter(
+                  (tool) =>
+                    tool.type === 'integrated' &&
+                    (!searchQuery ||
+                      tool.name
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase())),
                 ).length === 0 && (
                   <div className="p-6 text-sm text-muted-foreground text-center">
-                    {searchQuery ? `No tools match &quot;${searchQuery}&quot;` : 'No integrated tools available'}
+                    {searchQuery
+                      ? `No tools match &quot;${searchQuery}&quot;`
+                      : 'No integrated tools available'}
                   </div>
                 )}
               </div>
@@ -900,10 +1181,15 @@ export function ToolsDropdown({
               {/* MCP Servers List */}
               <div className="max-h-80 overflow-y-auto p-4">
                 {servers
-                  .filter(server => 
-                    !searchQuery || 
-                    server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    server.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                  .filter(
+                    (server) =>
+                      !searchQuery ||
+                      server.name
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase()) ||
+                      server.description
+                        ?.toLowerCase()
+                        .includes(searchQuery.toLowerCase()),
                   )
                   .map((server) => (
                     <button
@@ -912,7 +1198,10 @@ export function ToolsDropdown({
                       className="w-full flex items-center gap-3 p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border-b dark:border-zinc-700 last:border-0 text-left"
                       onClick={() => handleViewServerDetails(server)}
                     >
-                      <Cloud size={16} className="text-muted-foreground shrink-0" />
+                      <Cloud
+                        size={16}
+                        className="text-muted-foreground shrink-0"
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">
                           {server.name}
@@ -929,18 +1218,28 @@ export function ToolsDropdown({
                             server.isActive ? 'bg-green-500' : 'bg-gray-400'
                           }`}
                         />
-                        <ChevronRight size={14} className="text-muted-foreground" />
+                        <ChevronRight
+                          size={14}
+                          className="text-muted-foreground"
+                        />
                       </div>
                     </button>
                   ))}
-                
-                {servers.filter(server => 
-                  !searchQuery || 
-                  server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  server.description?.toLowerCase().includes(searchQuery.toLowerCase())
+
+                {servers.filter(
+                  (server) =>
+                    !searchQuery ||
+                    server.name
+                      .toLowerCase()
+                      .includes(searchQuery.toLowerCase()) ||
+                    server.description
+                      ?.toLowerCase()
+                      .includes(searchQuery.toLowerCase()),
                 ).length === 0 && (
                   <div className="p-6 text-sm text-muted-foreground text-center">
-                    {searchQuery ? `No servers match &quot;${searchQuery}&quot;` : 'No MCP servers configured'}
+                    {searchQuery
+                      ? `No servers match &quot;${searchQuery}&quot;`
+                      : 'No MCP servers configured'}
                   </div>
                 )}
               </div>

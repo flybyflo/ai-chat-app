@@ -29,6 +29,7 @@ import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import type { VisibilityType } from './visibility-selector';
 import { ToolsDropdown, InlineToolsConfiguration } from './tools-dropdown';
 import type { McpServer } from '@/lib/db/schema';
+import { useToolSettings } from '@/hooks/use-tool-settings';
 
 function PureMultimodalInput({
   chatId,
@@ -63,6 +64,7 @@ function PureMultimodalInput({
   const { width } = useWindowSize();
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [configureToolsExpanded, setConfigureToolsExpanded] = useState(false);
+  const { toolSettings } = useToolSettings();
 
   // Fetch MCP servers
   useEffect(() => {
@@ -389,13 +391,13 @@ function PureAttachmentsButton({
   return (
     <Button
       data-testid="attachments-button"
-      className="rounded-md rounded-bl-lg p-[7px] h-fit dark:border-zinc-700 hover:dark:bg-zinc-900 hover:bg-zinc-200"
+      className="rounded-md rounded-bl-lg p-[7px] h-fit dark:border-zinc-700 hover:dark:bg-zinc-900 hover:bg-zinc-200 bg-transparent"
       onClick={(event) => {
         event.preventDefault();
         fileInputRef.current?.click();
       }}
       disabled={status !== 'ready'}
-      variant="ghost"
+      variant="outline"
     >
       <PaperclipIcon size={14} />
     </Button>

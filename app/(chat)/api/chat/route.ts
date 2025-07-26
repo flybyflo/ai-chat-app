@@ -30,6 +30,74 @@ import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
+
+// Helper function to get user tool settings from request body
+function getUserToolSettings(body: any) {
+  const toolSettings = body.toolSettings;
+  if (!toolSettings) {
+    // Default settings - all tools enabled
+    return {
+      integratedTools: {
+        getWeather: true,
+        createChart: true,
+        createDocument: true,
+        updateDocument: true,
+        requestSuggestions: true,
+      },
+      mcpServers: {},
+      mcpTools: {},
+    };
+  }
+  
+  return toolSettings;
+}
+
+// Helper function to filter tools based on user settings
+function filterToolsBySettings(tools: any, mcpTools: any, userMcpServers: any[], toolSettings: any) {
+  const filteredRegularTools: any = {};
+  const filteredMcpTools: any = {};
+  
+  // Filter integrated tools
+  if (toolSettings.integratedTools?.getWeather !== false && tools.getWeather) {
+    filteredRegularTools.getWeather = tools.getWeather;
+  }
+  if (toolSettings.integratedTools?.createChart !== false && tools.createChart) {
+    filteredRegularTools.createChart = tools.createChart;
+  }
+  if (toolSettings.integratedTools?.createDocument !== false && tools.createDocument) {
+    filteredRegularTools.createDocument = tools.createDocument;
+  }
+  if (toolSettings.integratedTools?.updateDocument !== false && tools.updateDocument) {
+    filteredRegularTools.updateDocument = tools.updateDocument;
+  }
+  if (toolSettings.integratedTools?.requestSuggestions !== false && tools.requestSuggestions) {
+    filteredRegularTools.requestSuggestions = tools.requestSuggestions;
+  }
+  
+  // Filter MCP tools
+  Object.entries(mcpTools).forEach(([toolName, toolFn]) => {
+    // Find which server this tool belongs to
+    const serverForTool = userMcpServers.find(server => {
+      // This is a simplified check - in reality you might need to track tool-to-server mapping
+      return toolName.includes(server.name.toLowerCase()) || toolName.startsWith(server.id);
+    });
+    
+    if (serverForTool) {
+      const serverEnabled = toolSettings.mcpServers?.[serverForTool.id] !== false;
+      const toolKey = `${serverForTool.id}:${toolName}`;
+      const toolEnabled = toolSettings.mcpTools?.[toolKey] !== false;
+      
+      if (serverEnabled && toolEnabled) {
+        filteredMcpTools[toolName] = toolFn;
+      }
+    } else {
+      // If we can't determine the server, include the tool by default
+      filteredMcpTools[toolName] = toolFn;
+    }
+  });
+  
+  return { ...filteredRegularTools, ...filteredMcpTools };
+}
 import { geolocation } from '@vercel/functions';
 import {
   createResumableStreamContext,
@@ -149,14 +217,19 @@ export async function POST(request: Request) {
 
     const stream = createDataStream({
       execute: async (dataStream) => {
+        // Get user tool settings from request body
+        const toolSettings = getUserToolSettings(body);
+        console.log('🔧 User tool settings:', toolSettings);
+        
         // Get user's active MCP servers and load tools
         let mcpTools = {};
+        let userMcpServers: any[] = [];
 
         try {
           console.log('🔄 Loading MCP tools from user servers...');
           
           // Get active MCP servers for the user
-          const userMcpServers = await getActiveMcpServersByUserId({ 
+          userMcpServers = await getActiveMcpServersByUserId({ 
             userId: session.user.id 
           });
 
@@ -207,19 +280,19 @@ export async function POST(request: Request) {
 
         console.log('📋 Regular tools registered:', Object.keys(regularTools));
 
-        const allTools = {
-          ...regularTools,
-          ...mcpTools,
-        };
+        // Filter tools based on user settings
+        const filteredTools = filterToolsBySettings(regularTools, mcpTools, userMcpServers, toolSettings);
 
         // Get all available tool names
-        const availableToolNames = Object.keys(allTools);
+        const availableToolNames = Object.keys(filteredTools);
         const regularToolNames = Object.keys(regularTools);
         const mcpToolNames = Object.keys(mcpTools);
+        const filteredToolNames = Object.keys(filteredTools);
 
         console.log(`🛠️  Available tools: ${availableToolNames.length} total 
           (${regularToolNames.length} regular, ${mcpToolNames.length} MCP)`);
         console.log('📋 All available tool names:', availableToolNames);
+        console.log(`🎯 Filtered tools (${filteredToolNames.length} enabled):`, filteredToolNames);
 
         if (mcpToolNames.length > 0) {
           console.log('🔗 MCP tools:', mcpToolNames);
@@ -236,7 +309,7 @@ export async function POST(request: Request) {
               : (availableToolNames as any[]),
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
-          tools: allTools,
+          tools: filteredTools,
           onFinish: async ({ response, steps }) => {
             if (session.user?.id) {
               try {

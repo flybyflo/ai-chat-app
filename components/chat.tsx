@@ -20,6 +20,7 @@ import { useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { ChatSDKError } from '@/lib/errors';
+import { useToolSettings } from '@/hooks/use-tool-settings';
 
 export function Chat({
   id,
@@ -45,6 +46,8 @@ export function Chat({
     initialVisibilityType,
   });
 
+  const { toolSettings } = useToolSettings();
+
   const {
     messages,
     setMessages,
@@ -69,6 +72,7 @@ export function Chat({
       message: body.messages.at(-1),
       selectedChatModel: initialChatModel,
       selectedVisibilityType: visibilityType,
+      toolSettings,
     }),
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
