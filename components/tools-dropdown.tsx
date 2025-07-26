@@ -888,12 +888,10 @@ export function ToolsDropdown({
 
   const handleAddNewClick = () => {
     if (inline) {
-      onConfigureToggle?.(false);
+      onConfigureToggle?.(true);
     } else {
       setDropdownOpen(false);
     }
-    // Navigate to MCP settings page
-    router.push('/settings');
   };
 
   const handleConfigureClick = () => {
