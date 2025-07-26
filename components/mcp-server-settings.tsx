@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -26,6 +26,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -39,6 +40,7 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
+import { Loader2, Wifi, WifiOff, AlertTriangle, CheckCircle } from 'lucide-react';
 
 const mcpServerSchema = z.object({
   name: z
@@ -52,6 +54,15 @@ const mcpServerSchema = z.object({
 });
 
 type McpServerForm = z.infer<typeof mcpServerSchema>;
+
+interface ServerHealthStatus {
+  status: 'online' | 'offline' | 'error' | 'timeout' | 'checking';
+  responseTime?: number;
+  statusCode?: number | null;
+  message?: string;
+  tools?: any[];
+  lastChecked?: Date;
+}
 
 interface McpServerSettingsProps {
   servers?: McpServer[];
@@ -68,20 +79,63 @@ const unifiedTableSchema = z.object({
   target: z.string(),
   limit: z.union([z.string(), z.number()]),
   reviewer: z.string(),
+  serverId: z.string().optional(),
+  healthStatus: z.object({
+    status: z.enum(['online', 'offline', 'error', 'timeout', 'checking']),
+    responseTime: z.number().optional(),
+    statusCode: z.number().nullable().optional(),
+    message: z.string().optional(),
+    lastChecked: z.date().optional(),
+  }).optional(),
 });
 
 type UnifiedTableData = z.infer<typeof unifiedTableSchema>;
 
-// Status component with dropdown
+// Status component with dropdown and health indicators
 function StatusCell({ 
   item, 
-  onToggle 
+  onToggle,
+  onTestConnection 
 }: { 
   item: UnifiedTableData; 
   onToggle: (id: number, newStatus: boolean) => void;
+  onTestConnection?: (serverId: string) => void;
 }) {
   const isActive = item.status === 'Active';
   const canToggle = item.type === 'MCP Server'; // Only servers can be toggled
+  const healthStatus = item.healthStatus;
+  
+  const getHealthIcon = () => {
+    if (!healthStatus || item.type !== 'MCP Server') return null;
+    
+    switch (healthStatus.status) {
+      case 'online':
+        return <CheckCircle size={12} className="text-green-500" />;
+      case 'offline':
+        return <WifiOff size={12} className="text-red-500" />;
+      case 'error':
+        return <AlertTriangle size={12} className="text-yellow-500" />;
+      case 'timeout':
+        return <AlertTriangle size={12} className="text-orange-500" />;
+      case 'checking':
+        return <Loader2 size={12} className="text-blue-500 animate-spin" />;
+      default:
+        return <Wifi size={12} className="text-gray-400" />;
+    }
+  };
+
+  const getHealthTooltip = () => {
+    if (!healthStatus || item.type !== 'MCP Server') return '';
+    
+    const parts = [
+      `Status: ${healthStatus.status}`,
+      healthStatus.responseTime ? `Response: ${healthStatus.responseTime}ms` : '',
+      healthStatus.message ? `Message: ${healthStatus.message}` : '',
+      healthStatus.lastChecked ? `Last checked: ${healthStatus.lastChecked.toLocaleTimeString()}` : ''
+    ].filter(Boolean);
+    
+    return parts.join('\n');
+  };
   
   if (!canToggle) {
     return (
@@ -98,8 +152,9 @@ function StatusCell({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" title={getHealthTooltip()}>
             <div className={`size-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+            {getHealthIcon()}
             <Badge variant="outline" className="text-muted-foreground px-1.5">
               {item.status}
             </Badge>
@@ -119,6 +174,17 @@ function StatusCell({
             <Badge variant="outline" className="text-gray-600">Inactive</Badge>
           </div>
         </DropdownMenuItem>
+        {item.serverId && onTestConnection && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => item.serverId && onTestConnection(item.serverId)}>
+              <div className="flex items-center gap-2">
+                <Wifi size={12} />
+                Test Connection
+              </div>
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -133,9 +199,80 @@ export function McpServerSettings({
   const [loading, setLoading] = useState(false);
   const [unifiedData, setUnifiedData] = useState<UnifiedTableData[]>([]);
   const [showDialog, setShowDialog] = useState(false);
+  const [serverHealthStatus, setServerHealthStatus] = useState<Record<string, ServerHealthStatus>>({});
+
+  // Function to fetch tools from a server
+  const fetchServerTools = useCallback(async (serverId: string) => {
+    try {
+      const response = await fetch(`/api/mcp-servers/${serverId}/tools`);
+      if (response.ok) {
+        const data = await response.json();
+        setServerHealthStatus(prev => ({
+          ...prev,
+          [serverId]: {
+            ...prev[serverId],
+            tools: data.tools || []
+          }
+        }));
+        return data.tools || [];
+      }
+    } catch (error) {
+      console.error('Failed to fetch tools:', error);
+    }
+    return [];
+  }, []);
+
+  // Function to test server connectivity
+  const testServerConnection = useCallback(async (serverId: string) => {
+    setServerHealthStatus(prev => ({
+      ...prev,
+      [serverId]: { status: 'checking' }
+    }));
+
+    try {
+      const response = await fetch(`/api/mcp-servers/${serverId}/test`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const healthData = await response.json();
+        setServerHealthStatus(prev => ({
+          ...prev,
+          [serverId]: {
+            ...healthData,
+            lastChecked: new Date()
+          }
+        }));
+        
+        // If server is online and active, fetch tools
+        const server = servers.find(s => s.id === serverId);
+        if (healthData.status === 'online' && server?.isActive) {
+          await fetchServerTools(serverId);
+        }
+      } else {
+        setServerHealthStatus(prev => ({
+          ...prev,
+          [serverId]: {
+            status: 'error',
+            message: 'Failed to test connection',
+            lastChecked: new Date()
+          }
+        }));
+      }
+    } catch (error) {
+      setServerHealthStatus(prev => ({
+        ...prev,
+        [serverId]: {
+          status: 'offline',
+          message: 'Connection failed',
+          lastChecked: new Date()
+        }
+      }));
+    }
+  }, [servers, fetchServerTools]);
 
   // Handler for toggling server status
-  const handleStatusToggle = async (id: number, newStatus: boolean) => {
+  const handleStatusToggle = useCallback(async (id: number, newStatus: boolean) => {
     const item = unifiedData.find(item => item.id === id);
     if (!item || item.type !== 'MCP Server') return;
 
@@ -173,6 +310,11 @@ export function McpServerSettings({
       }
 
       toast.success(`Server ${newStatus ? 'activated' : 'deactivated'}`);
+      
+      // If activating, test connection and fetch tools
+      if (newStatus) {
+        await testServerConnection(server.id);
+      }
     } catch (error) {
       console.error('Error updating server:', error);
       
@@ -189,7 +331,7 @@ export function McpServerSettings({
       
       toast.error('Failed to update server status - reverted change');
     }
-  };
+  }, [unifiedData, servers, onServersChange, testServerConnection]);
 
   const form = useForm<McpServerForm>({
     defaultValues: {
@@ -210,91 +352,116 @@ export function McpServerSettings({
         const allData: UnifiedTableData[] = [];
         let counter = 1;
 
-        // Add MCP servers first
-        servers.forEach((server) => {
+        // Collect all MCP tool names first to avoid duplicates
+        const mcpToolNames = new Set<string>();
+        
+        // Add MCP servers with their tools information
+        for (const server of servers) {
+          let toolsInfo = 'No tools available';
+          let toolCount = 0;
+          let serverStatus = server.isActive ? 'Active' : 'Inactive';
+          
+          // If server is active, try to fetch tools
+          if (server.isActive) {
+            try {
+              const response = await fetch(
+                `/api/mcp-servers/${server.id}/tools`,
+              );
+              if (response.ok) {
+                const data = await response.json();
+                
+                if (data.tools && Array.isArray(data.tools) && data.tools.length > 0) {
+                  toolCount = data.tools.length;
+                  const toolNames = data.tools.map((tool: any) => tool.name).slice(0, 3);
+                  toolsInfo = toolNames.join(', ');
+                  if (data.tools.length > 3) {
+                    toolsInfo += ` and ${data.tools.length - 3} more`;
+                  }
+                  
+                  // Track tool names for deduplication
+                  data.tools.forEach((tool: any) => {
+                    mcpToolNames.add(tool.name.toLowerCase());
+                  });
+                } else if (data.status !== 'success') {
+                  toolsInfo = data.message || 'Failed to fetch tools';
+                  serverStatus = 'Error';
+                }
+              } else {
+                toolsInfo = `HTTP ${response.status} - Failed to fetch tools`;
+                serverStatus = 'Error';
+              }
+            } catch (error) {
+              console.error(
+                `Failed to fetch tools for server ${server.name}:`,
+                error,
+              );
+              toolsInfo = 'Connection failed';
+              serverStatus = 'Error';
+            }
+          }
+          
           allData.push({
             id: counter++,
             header: server.name,
             type: 'MCP Server',
-            status: server.isActive ? 'Active' : 'Inactive',
+            status: serverStatus,
             target: server.url,
-            limit: server.apiKey ? '••••••' : 'None',
-            reviewer: server.description || 'No description',
+            limit: toolCount.toString(),
+            reviewer: server.description ? `${server.description} • Tools: ${toolsInfo}` : `Tools: ${toolsInfo}`,
+            serverId: server.id,
+            healthStatus: serverHealthStatus[server.id] ? {
+              status: serverHealthStatus[server.id].status,
+              responseTime: serverHealthStatus[server.id].responseTime,
+              statusCode: serverHealthStatus[server.id].statusCode,
+              message: serverHealthStatus[server.id].message,
+              lastChecked: serverHealthStatus[server.id].lastChecked,
+            } : undefined,
           });
-        });
+        }
 
-        // Add integrated tools
+        // Add integrated tools, but skip if MCP server provides same tool
         const integratedTools = [
           {
             name: 'Weather',
             description: 'Get current weather information',
-            parameters: 1, // location parameter
+            parameters: 1,
           },
           {
             name: 'Charts',
             description: 'Create data visualizations',
-            parameters: 2, // data and type parameters
+            parameters: 2,
           },
           {
             name: 'Documents',
             description: 'Create and edit documents',
-            parameters: 2, // title and content parameters
+            parameters: 2,
           },
           {
             name: 'Update Document',
             description: 'Update existing documents',
-            parameters: 2, // id and content parameters
+            parameters: 2,
           },
           {
             name: 'Suggestions',
             description: 'Get content suggestions',
-            parameters: 1, // context parameter
+            parameters: 1,
           },
         ];
 
         integratedTools.forEach((tool) => {
-          allData.push({
-            id: counter++,
-            header: tool.name,
-            type: 'Integrated Tool',
-            status: 'Active',
-            target: 'Built-in',
-            limit: tool.parameters,
-            reviewer: tool.description,
-          });
-        });
-
-        // Add MCP server tools
-        for (const server of activeServers) {
-          try {
-            const response = await fetch(
-              `/api/mcp-servers/${server.id}/tools`,
-            );
-            if (response.ok) {
-              const data = await response.json();
-              if (data.tools && Array.isArray(data.tools)) {
-                data.tools.forEach((tool: any) => {
-                  allData.push({
-                    id: counter++,
-                    header: tool.name,
-                    type: 'MCP Tool',
-                    status: 'Available',
-                    target: server.name,
-                    limit: tool.parameters
-                      ? Object.keys(tool.parameters).length
-                      : '0',
-                    reviewer: tool.description || 'No description',
-                  });
-                });
-              }
-            }
-          } catch (error) {
-            console.error(
-              `Failed to fetch tools for server ${server.name}:`,
-              error,
-            );
+          // Only add integrated tool if no MCP server provides it
+          if (!mcpToolNames.has(tool.name.toLowerCase())) {
+            allData.push({
+              id: counter++,
+              header: tool.name,
+              type: 'Integrated Tool',
+              status: 'Active',
+              target: 'Built-in',
+              limit: tool.parameters,
+              reviewer: tool.description,
+            });
           }
-        }
+        });
 
         setUnifiedData(allData);
       } catch (error) {
@@ -303,10 +470,25 @@ export function McpServerSettings({
     };
 
     fetchUnifiedData();
-  }, [servers]);
+  }, [servers, serverHealthStatus]);
+
+  // Auto-check health for active servers on mount and when servers change
+  useEffect(() => {
+    const activeServers = servers.filter(server => server.isActive);
+    
+    // Check health for active servers that haven't been checked recently
+    activeServers.forEach(server => {
+      const lastCheck = serverHealthStatus[server.id]?.lastChecked;
+      const shouldCheck = !lastCheck || (Date.now() - lastCheck.getTime()) > 30000; // Check every 30 seconds
+      
+      if (shouldCheck) {
+        testServerConnection(server.id);
+      }
+    });
+  }, [servers, testServerConnection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Define custom columns for the DataTable
-  const columns: ColumnDef<UnifiedTableData>[] = [
+  const columns: ColumnDef<UnifiedTableData>[] = useMemo(() => [
     {
       accessorKey: 'header',
       header: 'Name',
@@ -330,12 +512,13 @@ export function McpServerSettings({
         <StatusCell
           item={row.original}
           onToggle={handleStatusToggle}
+          onTestConnection={testServerConnection}
         />
       ),
     },
     {
       accessorKey: 'target',
-      header: 'Target/Source',
+      header: 'URL/Source',
       cell: ({ row }) => (
         <div className="text-sm text-muted-foreground max-w-48 truncate">
           {row.original.target}
@@ -343,15 +526,24 @@ export function McpServerSettings({
       ),
     },
     {
-      accessorKey: 'reviewer',
-      header: 'Description',
+      accessorKey: 'limit',
+      header: 'Tools',
       cell: ({ row }) => (
-        <div className="text-sm text-muted-foreground max-w-64 truncate">
+        <div className="text-sm font-medium">
+          {row.original.type === 'MCP Server' ? `${row.original.limit} tools` : row.original.limit}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'reviewer',
+      header: 'Description & Available Tools',
+      cell: ({ row }) => (
+        <div className="text-sm text-muted-foreground max-w-96 truncate">
           {row.original.reviewer}
         </div>
       ),
     },
-  ];
+  ], [handleStatusToggle, testServerConnection]);
 
   const handleEditServer = (server: McpServer) => {
     setEditingServer(server);
