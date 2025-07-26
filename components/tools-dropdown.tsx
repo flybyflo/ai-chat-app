@@ -10,10 +10,11 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { PlusIcon } from './icons';
 import type { McpServer } from '@/lib/db/schema';
 import { cn } from '@/lib/utils';
-import { Wrench, Bot, Cloud, FileText, TrendingUp, MapPin } from 'lucide-react';
+import { Wrench, Bot, Cloud, FileText, TrendingUp, MapPin, ArrowLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Tool {
@@ -30,15 +31,426 @@ interface ToolsDropdownProps {
   servers: McpServer[];
   onServersChange: (servers: McpServer[]) => void;
   className?: string;
+  inline?: boolean;
+  onConfigureToggle?: (expanded: boolean) => void;
+}
+
+type ViewMode = 'configure' | 'integrated-tools' | 'mcp-servers' | 'mcp-server-details';
+
+// Inline Tools Configuration Component
+export function InlineToolsConfiguration({
+  servers,
+  onServersChange,
+  onClose,
+}: {
+  servers: McpServer[];
+  onServersChange: (servers: McpServer[]) => void;
+  onClose: () => void;
+}) {
+  const [currentView, setCurrentView] = useState<ViewMode>('configure');
+  const [selectedServer, setSelectedServer] = useState<McpServer | null>(null);
+  const [serverTools, setServerTools] = useState<any[]>([]);
+  const [loadingTools, setLoadingTools] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
+
+  const handleAddNewClick = () => {
+    onClose();
+    router.push('/settings');
+  };
+
+  const handleViewIntegratedTools = () => {
+    setCurrentView('integrated-tools');
+    setSearchQuery('');
+  };
+
+  const handleViewMcpServers = () => {
+    setCurrentView('mcp-servers');
+    setSearchQuery('');
+  };
+
+  const handleBackToConfigure = () => {
+    setCurrentView('configure');
+    setSearchQuery('');
+  };
+
+  const handleBackToMcpServers = () => {
+    setCurrentView('mcp-servers');
+    setSelectedServer(null);
+    setServerTools([]);
+    setSearchQuery('');
+  };
+
+  const handleViewServerDetails = async (server: McpServer) => {
+    setSelectedServer(server);
+    setCurrentView('mcp-server-details');
+    setSearchQuery('');
+    
+    setLoadingTools(true);
+    try {
+      const response = await fetch(`/api/mcp-servers/${server.id}/tools`);
+      if (response.ok) {
+        const data = await response.json();
+        setServerTools(data.tools || []);
+      } else {
+        setServerTools([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch server tools:', error);
+      setServerTools([]);
+    } finally {
+      setLoadingTools(false);
+    }
+  };
+
+  const filteredTools = useMemo(() => {
+    const integratedTools: Tool[] = [
+      {
+        id: 'getWeather',
+        name: 'Weather',
+        description: 'Get current weather information',
+        type: 'integrated',
+        status: 'active',
+        icon: <MapPin size={14} />,
+      },
+      {
+        id: 'createChart',
+        name: 'Charts',
+        description: 'Create data visualizations',
+        type: 'integrated',
+        status: 'active',
+        icon: <TrendingUp size={14} />,
+      },
+      {
+        id: 'createDocument',
+        name: 'Documents',
+        description: 'Create and edit documents',
+        type: 'integrated',
+        status: 'active',
+        icon: <FileText size={14} />,
+      },
+      {
+        id: 'updateDocument',
+        name: 'Update Document',
+        description: 'Update existing documents',
+        type: 'integrated',
+        status: 'active',
+        icon: <FileText size={14} />,
+      },
+      {
+        id: 'requestSuggestions',
+        name: 'Suggestions',
+        description: 'Get content suggestions',
+        type: 'integrated',
+        status: 'active',
+        icon: <Bot size={14} />,
+      },
+    ];
+
+    const mcpTools: Tool[] = servers.map((server) => ({
+      id: `mcp-${server.id}`,
+      name: server.name,
+      description: server.description || server.url,
+      type: 'mcp',
+      status: server.isActive ? 'active' : 'inactive',
+      icon: <Cloud size={14} />,
+      serverName: server.name,
+    }));
+
+    const allTools = [...integratedTools, ...mcpTools];
+
+    return allTools.filter(
+      (tool) =>
+        tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tool.description.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+  }, [servers, searchQuery]);
+
+  return (
+    <div className="w-full space-y-4">
+      {currentView === 'configure' ? (
+        // Configure View
+        <>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="size-8 p-0 rounded-lg"
+            >
+              <ArrowLeft size={14} />
+            </Button>
+            <div className="flex-1">
+              <div className="text-sm font-medium">Configure Tools</div>
+              <div className="text-xs text-muted-foreground">Manage integrated tools and MCP servers</div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border dark:border-zinc-700"
+              onClick={handleViewIntegratedTools}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-md">
+                  <Bot size={16} className="text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-medium">Integrated Tools</div>
+                  <div className="text-xs text-muted-foreground">
+                    Built-in tools ({filteredTools.filter(t => t.type === 'integrated').length} available)
+                  </div>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-muted-foreground" />
+            </button>
+
+            <button
+              type="button"
+              className="w-full flex items-center justify-between p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border dark:border-zinc-700"
+              onClick={handleViewMcpServers}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-md">
+                  <Cloud size={16} className="text-green-600 dark:text-green-400" />
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-medium">MCP Servers</div>
+                  <div className="text-xs text-muted-foreground">
+                    External tools ({servers.filter(s => s.isActive).length} active, {servers.length} total)
+                  </div>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-muted-foreground" />
+            </button>
+          </div>
+
+          <div className="pt-2 border-t dark:border-zinc-700">
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-start text-blue-600 dark:text-blue-400 rounded-lg"
+              onClick={handleAddNewClick}
+            >
+              <PlusIcon size={14} />
+              Add MCP Server
+            </Button>
+          </div>
+        </>
+      ) : currentView === 'integrated-tools' ? (
+        // Integrated Tools View
+        <>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-8 p-0 rounded-lg"
+              onClick={handleBackToConfigure}
+            >
+              <ArrowLeft size={14} />
+            </Button>
+            <Input
+              placeholder="Search integrated tools..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 h-10 text-sm bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {filteredTools
+              .filter(tool => 
+                tool.type === 'integrated' && 
+                (!searchQuery || tool.name.toLowerCase().includes(searchQuery.toLowerCase()))
+              )
+              .map((tool) => (
+                <div
+                  key={tool.id}
+                  className="flex items-center gap-3 p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-default rounded-xl border-b dark:border-zinc-700 last:border-0"
+                >
+                  <div className="text-muted-foreground shrink-0">
+                    {tool.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {tool.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {tool.description}
+                    </div>
+                  </div>
+                  <div className="size-2 rounded-full shrink-0 bg-green-500" />
+                </div>
+              ))}
+          </div>
+        </>
+      ) : currentView === 'mcp-servers' ? (
+        // MCP Servers View
+        <>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-8 p-0 rounded-lg"
+              onClick={handleBackToConfigure}
+            >
+              <ArrowLeft size={14} />
+            </Button>
+            <Input
+              placeholder="Search MCP servers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 h-10 text-sm bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {servers
+              .filter(server => 
+                !searchQuery || 
+                server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                server.description?.toLowerCase().includes(searchQuery.toLowerCase())
+              )
+              .map((server) => (
+                <button
+                  key={server.id}
+                  type="button"
+                  className="w-full flex items-center gap-3 p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border-b dark:border-zinc-700 last:border-0 text-left"
+                  onClick={() => handleViewServerDetails(server)}
+                >
+                  <Cloud size={16} className="text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {server.name}
+                    </div>
+                    {server.description && (
+                      <div className="text-xs text-muted-foreground truncate">
+                        {server.description}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`size-2 rounded-full shrink-0 ${
+                        server.isActive ? 'bg-green-500' : 'bg-gray-400'
+                      }`}
+                    />
+                    <ChevronRight size={14} className="text-muted-foreground" />
+                  </div>
+                </button>
+              ))}
+          </div>
+
+          <div className="pt-2 border-t dark:border-zinc-700">
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-start text-blue-600 dark:text-blue-400 rounded-lg"
+              onClick={handleAddNewClick}
+            >
+              <PlusIcon size={14} />
+              Add MCP Server
+            </Button>
+          </div>
+        </>
+      ) : currentView === 'mcp-server-details' && selectedServer ? (
+        // Server Details View
+        <>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-8 p-0 rounded-lg"
+              onClick={handleBackToMcpServers}
+            >
+              <ArrowLeft size={14} />
+            </Button>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium truncate">{selectedServer.name}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                {serverTools.length} tools available
+              </div>
+            </div>
+            <div
+              className={`size-2 rounded-full shrink-0 ${
+                selectedServer.isActive ? 'bg-green-500' : 'bg-gray-400'
+              }`}
+            />
+          </div>
+
+          <div className="space-y-3 p-3 bg-zinc-100 dark:bg-zinc-800 border dark:border-zinc-700 rounded-xl">
+            <div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">URL</div>
+              <div className="text-sm break-all">{selectedServer.url}</div>
+            </div>
+            {selectedServer.description && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description</div>
+                <div className="text-sm">{selectedServer.description}</div>
+              </div>
+            )}
+            <div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</div>
+              <div className="text-sm">
+                {selectedServer.isActive ? (
+                  <span className="text-green-600">Active</span>
+                ) : (
+                  <span className="text-gray-600">Inactive</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm font-medium mb-2">Available Tools</div>
+            {loadingTools ? (
+              <div className="flex items-center justify-center p-6">
+                <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading tools...</span>
+              </div>
+            ) : serverTools.length > 0 ? (
+              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                {serverTools.map((tool, index) => (
+                  <Badge
+                    key={`${tool.name}-${index}`}
+                    variant="secondary"
+                    className="cursor-default hover:bg-secondary/60"
+                    title={tool.description ? `${tool.description}${tool.parameters && Object.keys(tool.parameters).length > 0 ? ` (${Object.keys(tool.parameters).length} parameters)` : ''}` : tool.name}
+                  >
+                    {tool.name}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center p-4 text-sm text-muted-foreground">
+                No tools available or unable to fetch tools from this server
+              </div>
+            )}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
 }
 
 export function ToolsDropdown({
   servers,
   onServersChange,
   className,
+  inline = false,
+  onConfigureToggle,
 }: ToolsDropdownProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentView, setCurrentView] = useState<ViewMode>('configure');
+  const [selectedServer, setSelectedServer] = useState<McpServer | null>(null);
+  const [serverTools, setServerTools] = useState<any[]>([]);
+  const [loadingTools, setLoadingTools] = useState(false);
   const hiddenTriggerRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
 
@@ -112,10 +524,90 @@ export function ToolsDropdown({
   const activeTools = filteredTools.filter((tool) => tool.status === 'active');
 
   const handleAddNewClick = () => {
-    setDropdownOpen(false);
+    if (inline) {
+      onConfigureToggle?.(false);
+    } else {
+      setDropdownOpen(false);
+    }
     // Navigate to MCP settings page
     router.push('/settings');
   };
+
+  const handleConfigureClick = () => {
+    if (inline) {
+      onConfigureToggle?.(true);
+    } else {
+      setDropdownOpen(true);
+    }
+  };
+
+  const handleViewIntegratedTools = () => {
+    setCurrentView('integrated-tools');
+    setSearchQuery(''); // Reset search when switching views
+  };
+
+  const handleViewMcpServers = () => {
+    setCurrentView('mcp-servers');
+    setSearchQuery(''); // Reset search when switching views
+  };
+
+  const handleBackToConfigure = () => {
+    setCurrentView('configure');
+    setSearchQuery(''); // Reset search when switching views
+  };
+
+  const handleBackToMcpServers = () => {
+    setCurrentView('mcp-servers');
+    setSelectedServer(null);
+    setServerTools([]);
+    setSearchQuery(''); // Reset search when switching views
+  };
+
+  const handleViewServerDetails = async (server: McpServer) => {
+    setSelectedServer(server);
+    setCurrentView('mcp-server-details');
+    setSearchQuery('');
+    
+    // Fetch tools for this server
+    setLoadingTools(true);
+    try {
+      const response = await fetch(`/api/mcp-servers/${server.id}/tools`);
+      if (response.ok) {
+        const data = await response.json();
+        setServerTools(data.tools || []);
+      } else {
+        setServerTools([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch server tools:', error);
+      setServerTools([]);
+    } finally {
+      setLoadingTools(false);
+    }
+  };
+
+  const resetView = () => {
+    setCurrentView('configure');
+    setSearchQuery('');
+    setSelectedServer(null);
+    setServerTools([]);
+  };
+
+  // If inline mode, return just the button
+  if (inline) {
+    return (
+      <Button
+        className={cn(
+          'rounded-md rounded-bl-lg p-[7px] h-fit dark:border-zinc-700 hover:dark:bg-zinc-900 hover:bg-zinc-200',
+          className,
+        )}
+        variant="ghost"
+        onClick={handleConfigureClick}
+      >
+        <Wrench size={14} />
+      </Button>
+    );
+  }
 
   return (
     <>
@@ -124,8 +616,8 @@ export function ToolsDropdown({
         onOpenChange={(open) => {
           setDropdownOpen(open);
           if (!open) {
-            // Reset search when dropdown closes
-            setSearchQuery('');
+            // Reset search and view when dropdown closes
+            resetView();
           }
         }}
         modal={false}
@@ -142,60 +634,223 @@ export function ToolsDropdown({
             <Wrench size={14} />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[280px]" side="top">
-          {/* Search Input */}
-          <div className="p-2">
-            <Input
-              placeholder="Search tools..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 text-sm w-full"
-              onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing
-            />
-          </div>
+        <DropdownMenuContent align="start" className="w-[320px] p-0 rounded-2xl bg-muted dark:border-zinc-700" side="top">
+          {currentView === 'configure' ? (
+            // Configure View - Navigation to tool categories
+            <>
+              {/* Header */}
+              <div className="border-b border-border/50 p-4 rounded-t-2xl">
+                <div className="text-sm font-medium">Configure Tools</div>
+                <div className="text-xs text-muted-foreground">Manage integrated tools and MCP servers</div>
+              </div>
 
-          {/* Tools List */}
-          <div className="max-h-64 overflow-y-auto">
-            {filteredTools.map((tool) => (
-              <div
-                key={tool.id}
-                className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent hover:text-accent-foreground cursor-default"
-              >
-                <div className="text-muted-foreground shrink-0">
-                  {tool.icon}
-                </div>
-                <span className="text-sm font-medium flex-1 truncate">
-                  {tool.name}
-                </span>
-                <div
-                  className={`size-2 rounded-full shrink-0 ${
-                    tool.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
-                  }`}
+              {/* Navigation Options */}
+              <div className="p-4 space-y-3">
+                {/* Integrated Tools */}
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border dark:border-zinc-700"
+                  onClick={handleViewIntegratedTools}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-md">
+                      <Bot size={16} className="text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-sm font-medium">Integrated Tools</div>
+                      <div className="text-xs text-muted-foreground">
+                        Built-in tools ({filteredTools.filter(t => t.type === 'integrated').length} available)
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-muted-foreground" />
+                </button>
+
+                {/* MCP Servers */}
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border dark:border-zinc-700"
+                  onClick={handleViewMcpServers}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-md">
+                      <Cloud size={16} className="text-green-600 dark:text-green-400" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-sm font-medium">MCP Servers</div>
+                      <div className="text-xs text-muted-foreground">
+                        External tools ({servers.filter(s => s.isActive).length} active, {servers.length} total)
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-muted-foreground" />
+                </button>
+              </div>
+
+              {/* Footer */}
+              <DropdownMenuSeparator className="bg-border/30" />
+              <div className="p-4 rounded-b-2xl">
+                <DropdownMenuItem
+                  className="flex items-center gap-2 text-blue-600 dark:text-blue-400 rounded-lg"
+                  onClick={handleAddNewClick}
+                >
+                  <PlusIcon size={14} />
+                  Add MCP Server
+                </DropdownMenuItem>
+              </div>
+            </>
+          ) : currentView === 'integrated-tools' ? (
+            // Integrated Tools View
+            <>
+              {/* Header with Back Button */}
+              <div className="flex items-center border-b border-border/50 p-4 rounded-t-2xl">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="size-8 p-0 mr-2 rounded-lg"
+                  onClick={handleBackToConfigure}
+                >
+                  <ArrowLeft size={14} />
+                </Button>
+                <div className="text-sm font-medium">Integrated Tools</div>
+              </div>
+
+              {/* Search Input - Full Width */}
+              <div className="border-b border-border/50">
+                <Input
+                  placeholder="Search integrated tools..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 text-sm border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
-            ))}
 
-            {/* No Results */}
-            {filteredTools.length === 0 && (
-              <DropdownMenuItem
-                disabled
-                className="text-muted-foreground text-sm"
-              >
-                {searchQuery
-                  ? `No tools match "${searchQuery}"`
-                  : 'No tools available'}
-              </DropdownMenuItem>
-            )}
-          </div>
+              {/* Tools List */}
+              <div className="max-h-80 overflow-y-auto p-4">
+                {filteredTools
+                  .filter(tool => 
+                    tool.type === 'integrated' && 
+                    (!searchQuery || tool.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  )
+                  .map((tool) => (
+                    <div
+                      key={tool.id}
+                      className="flex items-center gap-3 p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-default rounded-xl border-b dark:border-zinc-700 last:border-0"
+                    >
+                      <div className="text-muted-foreground shrink-0">
+                        {tool.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {tool.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {tool.description}
+                        </div>
+                      </div>
+                      <div className="size-2 rounded-full shrink-0 bg-green-500" />
+                    </div>
+                  ))}
+                
+                {filteredTools.filter(tool => 
+                  tool.type === 'integrated' && 
+                  (!searchQuery || tool.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                ).length === 0 && (
+                  <div className="p-6 text-sm text-muted-foreground text-center">
+                    {searchQuery ? `No tools match &quot;${searchQuery}&quot;` : 'No integrated tools available'}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            // MCP Servers View
+            <>
+              {/* Header with Back Button */}
+              <div className="flex items-center border-b border-border/50 p-4 rounded-t-2xl">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="size-8 p-0 mr-2 rounded-lg"
+                  onClick={handleBackToConfigure}
+                >
+                  <ArrowLeft size={14} />
+                </Button>
+                <div className="text-sm font-medium">MCP Servers</div>
+              </div>
 
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="flex items-center gap-2 text-blue-600 dark:text-blue-400"
-            onClick={handleAddNewClick}
-          >
-            <PlusIcon size={14} />
-            Add MCP Server
-          </DropdownMenuItem>
+              {/* Search Input - Full Width */}
+              <div className="border-b border-border/50">
+                <Input
+                  placeholder="Search MCP servers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 text-sm border-0 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+
+              {/* MCP Servers List */}
+              <div className="max-h-80 overflow-y-auto p-4">
+                {servers
+                  .filter(server => 
+                    !searchQuery || 
+                    server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    server.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                  .map((server) => (
+                    <button
+                      key={server.id}
+                      type="button"
+                      className="w-full flex items-center gap-3 p-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer rounded-xl border-b dark:border-zinc-700 last:border-0 text-left"
+                      onClick={() => handleViewServerDetails(server)}
+                    >
+                      <Cloud size={16} className="text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {server.name}
+                        </div>
+                        {server.description && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {server.description}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`size-2 rounded-full shrink-0 ${
+                            server.isActive ? 'bg-green-500' : 'bg-gray-400'
+                          }`}
+                        />
+                        <ChevronRight size={14} className="text-muted-foreground" />
+                      </div>
+                    </button>
+                  ))}
+                
+                {servers.filter(server => 
+                  !searchQuery || 
+                  server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  server.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                ).length === 0 && (
+                  <div className="p-6 text-sm text-muted-foreground text-center">
+                    {searchQuery ? `No servers match &quot;${searchQuery}&quot;` : 'No MCP servers configured'}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <DropdownMenuSeparator className="bg-border/30" />
+              <div className="p-4 rounded-b-2xl">
+                <DropdownMenuItem
+                  className="flex items-center gap-2 text-blue-600 dark:text-blue-400 rounded-lg"
+                  onClick={handleAddNewClick}
+                >
+                  <PlusIcon size={14} />
+                  Add MCP Server
+                </DropdownMenuItem>
+              </div>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </>

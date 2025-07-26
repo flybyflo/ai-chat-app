@@ -27,7 +27,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowDown } from 'lucide-react';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import type { VisibilityType } from './visibility-selector';
-import { ToolsDropdown } from './tools-dropdown';
+import { ToolsDropdown, InlineToolsConfiguration } from './tools-dropdown';
 import type { McpServer } from '@/lib/db/schema';
 
 function PureMultimodalInput({
@@ -62,6 +62,7 @@ function PureMultimodalInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
+  const [configureToolsExpanded, setConfigureToolsExpanded] = useState(false);
 
   // Fetch MCP servers
   useEffect(() => {
@@ -282,54 +283,85 @@ function PureMultimodalInput({
         </div>
       )}
 
-      <Textarea
-        data-testid="multimodal-input"
-        ref={textareaRef}
-        placeholder="Send a message..."
-        value={input}
-        onChange={handleInput}
-        className={cx(
-          'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700',
-          className,
-        )}
-        rows={2}
-        autoFocus
-        onKeyDown={(event) => {
-          if (
-            event.key === 'Enter' &&
-            !event.shiftKey &&
-            !event.nativeEvent.isComposing
-          ) {
-            event.preventDefault();
+      <div className="relative">
+        <Textarea
+          data-testid="multimodal-input"
+          ref={textareaRef}
+          placeholder={configureToolsExpanded ? "" : "Send a message..."}
+          value={input}
+          onChange={handleInput}
+          className={cx(
+            'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700 transition-all duration-300',
+            configureToolsExpanded && 'min-h-[400px] pt-16',
+            className,
+          )}
+          rows={2}
+          autoFocus={!configureToolsExpanded}
+          disabled={configureToolsExpanded}
+          onKeyDown={(event) => {
+            if (configureToolsExpanded) return;
+            
+            if (
+              event.key === 'Enter' &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
+              event.preventDefault();
 
-            if (status !== 'ready') {
-              toast.error('Please wait for the model to finish its response!');
-            } else {
-              submitForm();
+              if (status !== 'ready') {
+                toast.error('Please wait for the model to finish its response!');
+              } else {
+                submitForm();
+              }
             }
-          }
-        }}
-      />
-
-      <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start gap-1">
-        <AttachmentsButton fileInputRef={fileInputRef} status={status} />
-        <ToolsDropdown
-          servers={mcpServers}
-          onServersChange={setMcpServers}
+          }}
         />
+        
+        {/* Inline Tools Configuration */}
+        <AnimatePresence>
+          {configureToolsExpanded && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="absolute top-4 inset-x-4 z-10"
+            >
+              <InlineToolsConfiguration
+                servers={mcpServers}
+                onServersChange={setMcpServers}
+                onClose={() => setConfigureToolsExpanded(false)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
-        {status === 'submitted' ? (
-          <StopButton stop={stop} setMessages={setMessages} />
-        ) : (
-          <SendButton
-            input={input}
-            submitForm={submitForm}
-            uploadQueue={uploadQueue}
-          />
-        )}
-      </div>
+      {!configureToolsExpanded && (
+        <>
+          <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start gap-1">
+            <AttachmentsButton fileInputRef={fileInputRef} status={status} />
+            <ToolsDropdown
+              servers={mcpServers}
+              onServersChange={setMcpServers}
+              inline={true}
+              onConfigureToggle={setConfigureToolsExpanded}
+            />
+          </div>
+
+          <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
+            {status === 'submitted' ? (
+              <StopButton stop={stop} setMessages={setMessages} />
+            ) : (
+              <SendButton
+                input={input}
+                submitForm={submitForm}
+                uploadQueue={uploadQueue}
+              />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
