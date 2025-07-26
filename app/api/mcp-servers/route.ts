@@ -7,7 +7,11 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 // Database setup
-const client = postgres(process.env.POSTGRES_URL!);
+const postgresUrl = process.env.POSTGRES_URL;
+if (!postgresUrl) {
+  throw new Error('POSTGRES_URL environment variable is required');
+}
+const client = postgres(postgresUrl);
 const db = drizzle(client);
 
 const createMcpServerSchema = z.object({

@@ -144,7 +144,7 @@ export function ToolsDropdown({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[280px]" side="top">
           {/* Search Input */}
-          <div className="px-2 py-2">
+          <div className="p-2">
             <Input
               placeholder="Search tools..."
               value={searchQuery}
@@ -161,14 +161,14 @@ export function ToolsDropdown({
                 key={tool.id}
                 className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent hover:text-accent-foreground cursor-default"
               >
-                <div className="text-muted-foreground flex-shrink-0">
+                <div className="text-muted-foreground shrink-0">
                   {tool.icon}
                 </div>
                 <span className="text-sm font-medium flex-1 truncate">
                   {tool.name}
                 </span>
                 <div
-                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  className={`size-2 rounded-full shrink-0 ${
                     tool.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
                   }`}
                 />

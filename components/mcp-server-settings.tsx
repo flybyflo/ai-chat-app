@@ -86,7 +86,7 @@ function StatusCell({
   if (!canToggle) {
     return (
       <div className="flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+        <div className={`size-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
         <Badge variant="outline" className="text-muted-foreground px-1.5">
           {item.status}
         </Badge>
@@ -99,7 +99,7 @@ function StatusCell({
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+            <div className={`size-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
             <Badge variant="outline" className="text-muted-foreground px-1.5">
               {item.status}
             </Badge>
@@ -109,13 +109,13 @@ function StatusCell({
       <DropdownMenuContent align="start">
         <DropdownMenuItem onClick={() => onToggle(item.id, true)}>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <div className="size-2 rounded-full bg-green-500" />
             <Badge variant="outline" className="text-green-600">Active</Badge>
           </div>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onToggle(item.id, false)}>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-gray-400" />
+            <div className="size-2 rounded-full bg-gray-400" />
             <Badge variant="outline" className="text-gray-600">Inactive</Badge>
           </div>
         </DropdownMenuItem>
@@ -466,7 +466,7 @@ export function McpServerSettings({
 
   return (
     <div className={`h-full flex flex-col overflow-hidden ${className}`}>
-      <div className="px-6 py-6 border-b">
+      <div className="p-6 border-b">
         <h1 className="text-2xl font-semibold">MCP Server Settings</h1>
         <p className="text-muted-foreground">
           Manage your Model Context Protocol (MCP) servers. These servers
@@ -474,7 +474,7 @@ export function McpServerSettings({
         </p>
       </div>
 
-      <div className="flex-1 overflow-auto px-6 py-6 space-y-6">
+      <div className="flex-1 overflow-auto p-6 space-y-6">
         {/* Unified Table for Servers and Tools */}
         {unifiedData.length > 0 ? (
           <div className="space-y-4">
@@ -510,7 +510,7 @@ export function McpServerSettings({
 
         {/* Add/Edit Server Dialog */}
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-screen-toast-mobile">
             <DialogHeader>
               <DialogTitle>
                 {editingServer ? 'Edit MCP Server' : 'Add New MCP Server'}
